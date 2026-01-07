@@ -12,6 +12,11 @@ namespace config {
     struct flask_settings_base
     {
         bool enable{ true };
+        std::string notify{ "Я не могу выпить больше зелий." };
+        bool enable_parallel_cooldown{ true };
+        bool anti_spam{ true };
+        float anti_spam_delay{ 0.1f };
+
         float regeneration_mult_base{ 100.0f };
         RE::BGSKeyword* regeneration_mult_keyword{ nullptr };
         
@@ -35,9 +40,7 @@ namespace config {
 
     export struct main_settings
     {
-        std::string notify{ "Я не могу выпить больше зелий." };
         RE::BGSKeyword* no_remove_keyword{ nullptr };
-        bool enable_parallel_cooldown{ true };
     };
 
     export class config_manager final
@@ -89,6 +92,11 @@ namespace config {
             if (ini.has(section)) {
                 const auto& collection = ini.get(section);
                 if (collection.has("FlasksEnable")) parse_bool(collection.get("FlasksEnable"), settings.enable);
+                if (collection.has("FlasksNotify")) settings.notify = collection.get("FlasksNotify");
+                if (collection.has("FlasksEnableParallelCooldown")) parse_bool(collection.get("FlasksEnableParallelCooldown"), settings.enable_parallel_cooldown);
+                if (collection.has("FlasksAntiSpam")) parse_bool(collection.get("FlasksAntiSpam"), settings.anti_spam);
+                if (collection.has("FlasksAntiSpamDelay")) parse_float(collection.get("FlasksAntiSpamDelay"), settings.anti_spam_delay);
+
                 if (collection.has("FlasksRegenerationMultBase")) parse_float(collection.get("FlasksRegenerationMultBase"), settings.regeneration_mult_base);
                 if (collection.has("FlasksRegenerationMultKeyword")) regen_kw = collection.get("FlasksRegenerationMultKeyword");
                 if (collection.has("FlasksCapBase")) parse_int(collection.get("FlasksCapBase"), settings.cap_base);
@@ -103,12 +111,15 @@ namespace config {
         }
 
         void generate_default(const mINI::INIFile& file, mINI::INIStructure& ini) {
-             ini["TrueFlasksNG"]["Notify"] = main.notify;
              ini["TrueFlasksNG"]["NoRemoveKeyword"] = keyword_to_string(main.no_remove_keyword, "0x800~Mod.esp");
-             ini["TrueFlasksNG"]["EnableParallelCooldown"] = main.enable_parallel_cooldown ? "1" : "0";
              
              auto write_flask = [&](const std::string& section, const flask_settings_base& s) {
                  ini[section]["FlasksEnable"] = s.enable ? "1" : "0";
+                 ini[section]["FlasksNotify"] = s.notify;
+                 ini[section]["FlasksEnableParallelCooldown"] = s.enable_parallel_cooldown ? "1" : "0";
+                 ini[section]["FlasksAntiSpam"] = s.anti_spam ? "1" : "0";
+                 ini[section]["FlasksAntiSpamDelay"] = std::format("{:.1f}", s.anti_spam_delay);
+
                  ini[section]["FlasksRegenerationMultBase"] = std::format("{:.1f}", s.regeneration_mult_base);
                  ini[section]["FlasksRegenerationMultKeyword"] = keyword_to_string(s.regeneration_mult_keyword, "0x800~Mod.esp");
                  ini[section]["FlasksCapBase"] = std::to_string(s.cap_base);
@@ -130,8 +141,13 @@ namespace config {
              write_flask_full("FlasksStamina", flasks_stamina);
              write_flask_full("FlasksMagick", flasks_magick);
              
-             file.generate(ini, true);
-             logger::info("Default configuration generated at {}", config_path_.string());
+             if (file.generate(ini, true)) {
+               logger::info("Default configuration generated at {}", config_path_.string());
+               return;
+             }
+            
+            logger::error("Error when try create default configuration at {}", config_path_.string());
+            
         }
 
     public:
@@ -163,9 +179,7 @@ namespace config {
             std::string no_remove_kw = "0x800~Mod.esp";
             if (ini.has("TrueFlasksNG")) {
                 const auto& sec = ini.get("TrueFlasksNG");
-                if (sec.has("Notify")) main.notify = sec.get("Notify");
                 if (sec.has("NoRemoveKeyword")) no_remove_kw = sec.get("NoRemoveKeyword");
-                if (sec.has("EnableParallelCooldown")) parse_bool(sec.get("EnableParallelCooldown"), main.enable_parallel_cooldown);
             }
             main.no_remove_keyword = parse_keyword(no_remove_kw);
 
