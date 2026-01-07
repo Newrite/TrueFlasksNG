@@ -51,7 +51,7 @@ set_policy("build.c++.modules", true)
 add_includedirs("src")
 set_pcxxheader("src/pch.h")
 add_headerfiles("src/**.h", "src/**.hpp", "src/**.html", "src/**.js", "src/**.css")
-add_files("src/**.cpp", "src/**.ixx")
+add_files("src/**.cpp")
 
 after_build(function(target)
     local copy = function(env_path, ext)

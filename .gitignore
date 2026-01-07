@@ -1,0 +1,5 @@
+.xmake/
+build/
+dist/
+xmake-requires.lock
+vsxmake*/
