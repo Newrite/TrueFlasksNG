@@ -9,9 +9,11 @@ import TrueFlasks.Core.Utility;
 
 namespace config {
 
-    struct flask_settings_base
+    export struct flask_settings_base
     {
         bool enable{ true };
+        bool npc{ true };
+        bool player{ true };
         std::string notify{ "Я не могу выпить больше зелий." };
         bool enable_parallel_cooldown{ true };
         bool anti_spam{ true };
@@ -92,6 +94,8 @@ namespace config {
             if (ini.has(section)) {
                 const auto& collection = ini.get(section);
                 if (collection.has("FlasksEnable")) parse_bool(collection.get("FlasksEnable"), settings.enable);
+                if (collection.has("FlasksNPC")) parse_bool(collection.get("FlasksNPC"), settings.npc);
+                if (collection.has("FlasksPlayer")) parse_bool(collection.get("FlasksPlayer"), settings.player);
                 if (collection.has("FlasksNotify")) settings.notify = collection.get("FlasksNotify");
                 if (collection.has("FlasksEnableParallelCooldown")) parse_bool(collection.get("FlasksEnableParallelCooldown"), settings.enable_parallel_cooldown);
                 if (collection.has("FlasksAntiSpam")) parse_bool(collection.get("FlasksAntiSpam"), settings.anti_spam);
@@ -110,11 +114,13 @@ namespace config {
             settings.cooldown_keyword = parse_keyword(cd_kw);
         }
 
-        void generate_default(const mINI::INIFile& file, mINI::INIStructure& ini) {
+        void populate_ini(mINI::INIStructure& ini) {
              ini["TrueFlasksNG"]["NoRemoveKeyword"] = keyword_to_string(main.no_remove_keyword, "0x800~Mod.esp");
              
              auto write_flask = [&](const std::string& section, const flask_settings_base& s) {
                  ini[section]["FlasksEnable"] = s.enable ? "1" : "0";
+                 ini[section]["FlasksNPC"] = s.npc ? "1" : "0";
+                 ini[section]["FlasksPlayer"] = s.player ? "1" : "0";
                  ini[section]["FlasksNotify"] = s.notify;
                  ini[section]["FlasksEnableParallelCooldown"] = s.enable_parallel_cooldown ? "1" : "0";
                  ini[section]["FlasksAntiSpam"] = s.anti_spam ? "1" : "0";
@@ -140,6 +146,10 @@ namespace config {
              write_flask_full("FlasksHealth", flasks_health);
              write_flask_full("FlasksStamina", flasks_stamina);
              write_flask_full("FlasksMagick", flasks_magick);
+        }
+
+        void generate_default(const mINI::INIFile& file, mINI::INIStructure& ini) {
+             populate_ini(ini);
              
              if (file.generate(ini, true)) {
                logger::info("Default configuration generated at {}", config_path_.string());
@@ -147,7 +157,6 @@ namespace config {
              }
             
             logger::error("Error when try create default configuration at {}", config_path_.string());
-            
         }
 
     public:
@@ -208,6 +217,24 @@ namespace config {
             read_flask_full("FlasksMagick", flasks_magick);
             
             logger::info("Configuration loaded.");
+        }
+
+        auto save() -> void
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            
+            mINI::INIFile file(config_path_);
+            mINI::INIStructure ini;
+            
+            file.read(ini);
+            
+            populate_ini(ini);
+            
+            if (file.generate(ini, true)) {
+                logger::info("Configuration saved.");
+            } else {
+                logger::error("Failed to save configuration.");
+            }
         }
     };
 
