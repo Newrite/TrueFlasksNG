@@ -3,6 +3,7 @@ import TrueFlasks.UI.Prisma;
 import TrueFlasks.UI.SKSEMenu;
 import TrueFlasks.Events;
 import TrueFlasks.Core.Hooks;
+import TrueFlasks.Core.ActorsCache;
 
 auto skse_message_handle(SKSE::MessagingInterface::Message* message) -> void
 {
@@ -45,6 +46,16 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse)
 
   SKSE::GetMessagingInterface()->RegisterListener(skse_message_handle);
   ui::skse_menu::register_skse_menu();
+    
+    const auto serialization = SKSE::GetSerializationInterface();
+    if (!serialization) {
+        logger::info("Serialization interface is null"sv);
+        return false;
+    }
+
+    serialization->SetUniqueID('TFNG');
+    serialization->SetSaveCallback(core::actors_cache::cache_data::skse_save_callback);
+    serialization->SetLoadCallback(core::actors_cache::cache_data::skse_load_callback);
 
   logger::info("{} has finished loading.", plugin->GetName());
 

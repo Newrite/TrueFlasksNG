@@ -26,6 +26,7 @@ STATIC_STRUCT(character)
   static constexpr auto addr_vtable_character = RE::Character::VTABLE[0];
   static constexpr auto addr_vtable_player_character = RE::PlayerCharacter::VTABLE[0];
   static constexpr auto offset_vtable_update = RELOCATION_OFFSET(0xAD, 0xAD);
+  static constexpr auto offset_vtable_drink_potion = RELOCATION_OFFSET(0x10F, 0x10F);
 
   static auto on_update(RE::Character* character, const float delta) -> void
   {
@@ -54,8 +55,37 @@ STATIC_STRUCT(character)
     return on_update_player_character_original(character, delta);
   }
 
+  static auto on_drink_potion(RE::Character* character, RE::AlchemyItem* potion, RE::ExtraDataList* extra_list) -> void
+  {
+    auto ctx = hooks_ctx::on_actor_drink_potion{character, potion, extra_list};
+  }
+
+  static auto on_drink_potion_character(RE::Character* character, RE::AlchemyItem* potion, RE::ExtraDataList* extra_list) -> bool
+  {
+      
+      if (!character || !potion || !extra_list) {
+          return on_drink_potion_character_original(character, potion, extra_list);
+      }
+      
+    on_drink_potion(character, potion, extra_list);
+    return on_drink_potion_character_original(character, potion, extra_list);
+  }
+
+  static auto on_drink_potion_player_character(RE::PlayerCharacter* character, RE::AlchemyItem* potion, RE::ExtraDataList* extra_list) -> bool
+  {
+      
+      if (!character || !potion || !extra_list) {
+          return on_drink_potion_player_character_original(character, potion, extra_list);
+      }
+      
+    on_drink_potion(character, potion, extra_list);
+    return on_drink_potion_player_character_original(character, potion, extra_list);
+  }
+
   static inline REL::Relocation<decltype(on_update_character)> on_update_character_original;
   static inline REL::Relocation<decltype(on_update_player_character)> on_update_player_character_original;
+  static inline REL::Relocation<decltype(on_drink_potion_character)> on_drink_potion_character_original;
+  static inline REL::Relocation<decltype(on_drink_potion_player_character)> on_drink_potion_player_character_original;
 
   static auto install_hook() -> void
   {
@@ -67,6 +97,14 @@ STATIC_STRUCT(character)
                 offset_vtable_update,
                 on_update_player_character,
                 on_update_player_character_original, "on_update_player_character");
+    write_vfunc(REL::Relocation<>{addr_vtable_character},
+                offset_vtable_drink_potion,
+                on_drink_potion_character,
+                on_drink_potion_character_original, "on_drink_potion_character");
+    write_vfunc(REL::Relocation<>{addr_vtable_player_character},
+                offset_vtable_drink_potion,
+                on_drink_potion_player_character,
+                on_drink_potion_player_character_original, "on_drink_potion_player_character");
   }
 
 };
