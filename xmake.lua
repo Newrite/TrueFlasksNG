@@ -29,7 +29,7 @@ set_config("skyrim_se", true)
 set_config("skse_xbyak", true)
 
 rule("prisma_ui_resources")
-    set_extensions(".html", ".css", ".js")
+    set_extensions(".html", ".css", ".js", ".svg")
 
 -- targets
 target("TrueFlasksNG")
@@ -50,7 +50,7 @@ set_policy("build.c++.modules", true)
 -- add src files
 add_includedirs("src")
 set_pcxxheader("src/pch.h")
-add_headerfiles("src/**.h", "src/**.hpp", "src/**.html", "src/**.js", "src/**.css")
+add_headerfiles("src/**.h", "src/**.hpp", "src/**.html", "src/**.js", "src/**.css", "src/**.svg")
 add_files("src/**.cpp")
 
 after_build(function(target)
@@ -80,9 +80,9 @@ after_build(function(target)
     copy(dist_path, "")
 
     -- 3. Копируем папку с UI
-    local prisma_ui_path = path.join(dist_path, "PrismaUI")
-    os.mkdir(prisma_ui_path)
-    
+    local prisma_ui_views_path = path.join(dist_path, "PrismaUI", "views")
+    os.mkdir(prisma_ui_views_path)
+
     -- Путь "src/UI/views" считается автоматически от корня проекта (projectdir)
-    os.trycp(path.join(os.projectdir(), "src/UI/views/*"), prisma_ui_path)
+    os.trycp(path.join(os.projectdir(), "src/UI/views/*"), prisma_ui_views_path)
 end)
