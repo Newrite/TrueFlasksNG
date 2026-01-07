@@ -472,7 +472,7 @@ export auto get_game_setting_float(const char* game_setting, const float default
   return setting->GetFloat();
 }
 
-auto try_form_has_keyword(const RE::TESForm* form, const RE::BGSKeyword* keyword) -> bool
+export auto try_form_has_keyword(const RE::TESForm* form, const RE::BGSKeyword* keyword) -> bool
 {
   if (!form || !keyword) {
     return false;
@@ -487,7 +487,7 @@ auto try_form_has_keyword(const RE::TESForm* form, const RE::BGSKeyword* keyword
   return keyword_form->HasKeyword(keyword);
 }
 
-auto get_actor_value_max(RE::Actor* actor, const RE::ActorValue av) -> float
+export auto get_actor_value_max(RE::Actor* actor, const RE::ActorValue av) -> float
 {
   if (!actor) {
     return 0.f;
@@ -495,7 +495,7 @@ auto get_actor_value_max(RE::Actor* actor, const RE::ActorValue av) -> float
   return actor->GetActorValueModifier(RE::ACTOR_VALUE_MODIFIER::kTemporary, av) + actor->AsActorValueOwner()->GetPermanentActorValue(av);
 }
 
-auto get_actor_value_owner_as_actor(RE::ActorValueOwner* actor_value_owner) -> RE::Actor*
+export auto get_actor_value_owner_as_actor(RE::ActorValueOwner* actor_value_owner) -> RE::Actor*
 {
   const auto actor = (RE::Actor*)((char*)actor_value_owner - 0xB0);
   if (!actor) {

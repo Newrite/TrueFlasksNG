@@ -6,26 +6,55 @@ export struct cache_data final {
 
     struct actor_data final
     {
+      
+      struct delta_data final
+      {
+        float delta;
+        float delta_health;
+        float delta_stamina;
+        float delta_magick;
+        float delta_other;
+      };
     
-        struct flask_duration final
+        struct flask_cooldown final
         {
-            flask_duration() : duration_start(0.f), duration_current(0.f) {}
-            flask_duration(const float duration_start) : duration_start(duration_start)
-            {
-                duration_current = 0.f;
-            }
+            flask_cooldown() : cooldown_start(0.f), cooldown_current(0.f) {}
+            flask_cooldown(const float cooldown_start) : cooldown_start(cooldown_start), cooldown_current(cooldown_start) {}
         
-            float duration_start;
-            float duration_current;
+            float cooldown_start;
+            float cooldown_current;
         };
     
         static constexpr auto FLASK_ARRAY_SIZE = 64;
-        flask_duration flasks_health[FLASK_ARRAY_SIZE];
-        flask_duration flasks_magick[FLASK_ARRAY_SIZE];
-        flask_duration flasks_stamina[FLASK_ARRAY_SIZE];
-        flask_duration flasks_others[FLASK_ARRAY_SIZE];
+        flask_cooldown flasks_health[FLASK_ARRAY_SIZE];
+        flask_cooldown flasks_magick[FLASK_ARRAY_SIZE];
+        flask_cooldown flasks_stamina[FLASK_ARRAY_SIZE];
+        flask_cooldown flasks_others[FLASK_ARRAY_SIZE];
+      
+      float anti_spam_duration{0.f};
         
         std::uint64_t last_tick{GetTickCount64()};
+      
+      void update(const delta_data& delta_data)
+      {
+        last_tick = GetTickCount64();
+        if (anti_spam_duration > 0.f) {
+          anti_spam_duration = anti_spam_duration - delta_data.delta;
+        }
+
+        auto update_flasks = [](flask_cooldown* flasks, float delta) {
+            for (int i = 0; i < FLASK_ARRAY_SIZE; ++i) {
+                if (flasks[i].cooldown_current > 0.f) {
+                    flasks[i].cooldown_current -= delta;
+                }
+            }
+        };
+
+        update_flasks(flasks_health, delta_data.delta_health);
+        update_flasks(flasks_stamina, delta_data.delta_stamina);
+        update_flasks(flasks_magick, delta_data.delta_magick);
+        update_flasks(flasks_others, delta_data.delta_other);
+      }
     };
     
 private:
