@@ -1,6 +1,7 @@
 export module TrueFlasks.Events.MenuEvent;
 
 import TrueFlasks.Events.EventsCtx;
+import TrueFlasks.Config;
 
 namespace events::menu_event {
 
@@ -31,7 +32,7 @@ export struct menu_event_handler final : RE::BSTEventSink<RE::MenuOpenCloseEvent
     }
 
     auto ctx = events_ctx::process_event_menu_ctx{menu_event, event_source, menu_event->menuName, menu_event->opening};
-
+        config::on_menu_event(ctx);
     return RE::BSEventNotifyControl::kContinue;
   }
     

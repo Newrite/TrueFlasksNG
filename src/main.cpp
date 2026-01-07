@@ -4,6 +4,7 @@ import TrueFlasks.UI.SKSEMenu;
 import TrueFlasks.Events;
 import TrueFlasks.Core.Hooks;
 import TrueFlasks.Core.ActorsCache;
+import TrueFlasks.Config;
 
 auto skse_message_handle(SKSE::MessagingInterface::Message* message) -> void
 {
@@ -18,6 +19,7 @@ auto skse_message_handle(SKSE::MessagingInterface::Message* message) -> void
       break;
     }
     case SKSE::MessagingInterface::kDataLoaded: {
+        config::config_manager::get_singleton()->initialize();
       core::hooks::install_hooks();
       ui::prisma::initialize_ui();
       events::register_events();

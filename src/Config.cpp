@@ -1,0 +1,207 @@
+module;
+
+#include "library/ini.h"
+
+export module TrueFlasks.Config;
+
+import TrueFlasks.Events.EventsCtx;
+import TrueFlasks.Core.Utility;
+
+namespace config {
+
+    struct flask_settings_base
+    {
+        bool enable{ true };
+        float regeneration_mult_base{ 100.0f };
+        RE::BGSKeyword* regeneration_mult_keyword{ nullptr };
+        
+        int cap_base{ 1 };
+        RE::BGSKeyword* cap_keyword{ nullptr };
+
+        float cooldown_base{ 300.0f };
+        RE::BGSKeyword* cooldown_keyword{ nullptr };
+    };
+
+    export struct flask_settings : flask_settings_base
+    {
+        RE::BGSKeyword* keyword{ nullptr };
+    };
+
+    export struct flask_other_settings : flask_settings_base
+    {
+        RE::BGSKeyword* exclusive_keyword{ nullptr };
+        bool revert_exclusive{ false };
+    };
+
+    export struct main_settings
+    {
+        std::string notify{ "Я не могу выпить больше зелий." };
+        RE::BGSKeyword* no_remove_keyword{ nullptr };
+        bool enable_parallel_cooldown{ true };
+    };
+
+    export class config_manager final
+    {
+    public:
+        main_settings main;
+        flask_other_settings flasks_other;
+        flask_settings flasks_health;
+        flask_settings flasks_stamina;
+        flask_settings flasks_magick;
+
+    private:
+        std::filesystem::path config_path_;
+        std::mutex mutex_;
+
+        void parse_int(const std::string& val, int& out) {
+            if (auto res = core::utility::str_to_int64(val); res.has_value()) {
+                out = static_cast<int>(*res);
+            }
+        }
+        void parse_bool(const std::string& val, bool& out) {
+            if (auto res = core::utility::str_to_int64(val); res.has_value()) {
+                out = *res != 0;
+            }
+        }
+        void parse_float(const std::string& val, float& out) {
+            if (auto res = core::utility::string_to_float(val); res.has_value()) {
+                out = *res;
+            }
+        }
+
+        [[nodiscard]] auto parse_keyword(const std::string& val) -> RE::BGSKeyword* {
+            auto res = core::utility::resolved_form_id_from_string(val);
+            if (!res.has_value()) return nullptr;
+            auto form = core::utility::get_form_from_form_id_and_mod_name(res->id, res->mod_name);
+            return form ? form->As<RE::BGSKeyword>() : nullptr;
+        }
+
+        [[nodiscard]] auto keyword_to_string(RE::BGSKeyword* keyword, const std::string& default_val) -> std::string {
+            if (!keyword) return default_val;
+            return core::utility::get_form_id_hex_and_mod_name_as_string(keyword, true);
+        }
+
+        void read_flask_base(const mINI::INIStructure& ini, const std::string& section, flask_settings_base& settings) {
+            std::string regen_kw = "0x800~Mod.esp";
+            std::string cap_kw = "0x800~Mod.esp";
+            std::string cd_kw = "0x800~Mod.esp";
+            
+            if (ini.has(section)) {
+                const auto& collection = ini.get(section);
+                if (collection.has("FlasksEnable")) parse_bool(collection.get("FlasksEnable"), settings.enable);
+                if (collection.has("FlasksRegenerationMultBase")) parse_float(collection.get("FlasksRegenerationMultBase"), settings.regeneration_mult_base);
+                if (collection.has("FlasksRegenerationMultKeyword")) regen_kw = collection.get("FlasksRegenerationMultKeyword");
+                if (collection.has("FlasksCapBase")) parse_int(collection.get("FlasksCapBase"), settings.cap_base);
+                if (collection.has("FlasksCapKeyword")) cap_kw = collection.get("FlasksCapKeyword");
+                if (collection.has("FlasksCooldownBase")) parse_float(collection.get("FlasksCooldownBase"), settings.cooldown_base);
+                if (collection.has("FlasksCooldownKeyword")) cd_kw = collection.get("FlasksCooldownKeyword");
+            }
+
+            settings.regeneration_mult_keyword = parse_keyword(regen_kw);
+            settings.cap_keyword = parse_keyword(cap_kw);
+            settings.cooldown_keyword = parse_keyword(cd_kw);
+        }
+
+        void generate_default(const mINI::INIFile& file, mINI::INIStructure& ini) {
+             ini["TrueFlasksNG"]["Notify"] = main.notify;
+             ini["TrueFlasksNG"]["NoRemoveKeyword"] = keyword_to_string(main.no_remove_keyword, "0x800~Mod.esp");
+             ini["TrueFlasksNG"]["EnableParallelCooldown"] = main.enable_parallel_cooldown ? "1" : "0";
+             
+             auto write_flask = [&](const std::string& section, const flask_settings_base& s) {
+                 ini[section]["FlasksEnable"] = s.enable ? "1" : "0";
+                 ini[section]["FlasksRegenerationMultBase"] = std::format("{:.1f}", s.regeneration_mult_base);
+                 ini[section]["FlasksRegenerationMultKeyword"] = keyword_to_string(s.regeneration_mult_keyword, "0x800~Mod.esp");
+                 ini[section]["FlasksCapBase"] = std::to_string(s.cap_base);
+                 ini[section]["FlasksCapKeyword"] = keyword_to_string(s.cap_keyword, "0x800~Mod.esp");
+                 ini[section]["FlasksCooldownBase"] = std::format("{:.1f}", s.cooldown_base);
+                 ini[section]["FlasksCooldownKeyword"] = keyword_to_string(s.cooldown_keyword, "0x800~Mod.esp");
+             };
+
+             write_flask("FlasksOther", flasks_other);
+             ini["FlasksOther"]["FlasksOtherExclusiveKeyword"] = keyword_to_string(flasks_other.exclusive_keyword, "0x800~Mod.esp");
+             ini["FlasksOther"]["FlasksRevertExclusive"] = flasks_other.revert_exclusive ? "1" : "0";
+
+             auto write_flask_full = [&](const std::string& section, const flask_settings& s) {
+                 write_flask(section, s);
+                 ini[section]["FlasksKeyword"] = keyword_to_string(s.keyword, "0x800~Mod.esp");
+             };
+
+             write_flask_full("FlasksHealth", flasks_health);
+             write_flask_full("FlasksStamina", flasks_stamina);
+             write_flask_full("FlasksMagick", flasks_magick);
+             
+             file.generate(ini, true);
+             logger::info("Default configuration generated at {}", config_path_.string());
+        }
+
+    public:
+        static auto get_singleton() -> config_manager*
+        {
+            static config_manager singleton;
+            return std::addressof(singleton);
+        }
+
+        auto initialize() -> void
+        {
+            config_path_ = "Data/SKSE/Plugins/TrueFlasksNG.ini";
+            load();
+        }
+
+        auto load() -> void
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            
+            mINI::INIFile file(config_path_);
+            mINI::INIStructure ini;
+            
+            if (!file.read(ini)) {
+                generate_default(file, ini);
+                return;
+            }
+
+            // [TrueFlasksNG]
+            std::string no_remove_kw = "0x800~Mod.esp";
+            if (ini.has("TrueFlasksNG")) {
+                const auto& sec = ini.get("TrueFlasksNG");
+                if (sec.has("Notify")) main.notify = sec.get("Notify");
+                if (sec.has("NoRemoveKeyword")) no_remove_kw = sec.get("NoRemoveKeyword");
+                if (sec.has("EnableParallelCooldown")) parse_bool(sec.get("EnableParallelCooldown"), main.enable_parallel_cooldown);
+            }
+            main.no_remove_keyword = parse_keyword(no_remove_kw);
+
+            // [FlasksOther]
+            read_flask_base(ini, "FlasksOther", flasks_other);
+            std::string exclusive_kw = "0x800~Mod.esp";
+            if (ini.has("FlasksOther")) {
+                const auto& sec = ini.get("FlasksOther");
+                if (sec.has("FlasksOtherExclusiveKeyword")) exclusive_kw = sec.get("FlasksOtherExclusiveKeyword");
+                if (sec.has("FlasksRevertExclusive")) parse_bool(sec.get("FlasksRevertExclusive"), flasks_other.revert_exclusive);
+            }
+            flasks_other.exclusive_keyword = parse_keyword(exclusive_kw);
+
+            auto read_flask_full = [&](const std::string& section, flask_settings& settings) {
+                read_flask_base(ini, section, settings);
+                std::string kw = "0x800~Mod.esp";
+                if (ini.has(section)) {
+                    const auto& sec = ini.get(section);
+                    if (sec.has("FlasksKeyword")) kw = sec.get("FlasksKeyword");
+                }
+                settings.keyword = parse_keyword(kw);
+            };
+
+            read_flask_full("FlasksHealth", flasks_health);
+            read_flask_full("FlasksStamina", flasks_stamina);
+            read_flask_full("FlasksMagick", flasks_magick);
+            
+            logger::info("Configuration loaded.");
+        }
+    };
+
+export void on_menu_event(const events::events_ctx::process_event_menu_ctx& ctx)
+{
+    if (!ctx.is_opening && ctx.menu_name == RE::MainMenu::MENU_NAME) {
+        config_manager::get_singleton()->load();
+    }
+}
+
+}
