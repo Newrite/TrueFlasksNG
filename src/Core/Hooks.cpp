@@ -1,6 +1,7 @@
 ﻿export module TrueFlasks.Core.Hooks;
 
 import TrueFlasks.Core.HooksCtx;
+import TrueFlasks.Features.TrueFlasks;
 
 namespace core::hooks {
 
@@ -21,6 +22,8 @@ auto write_vfunc(REL::Relocation<> addr,
   func_original = addr.write_vfunc(offset, func);
 }
 
+float last_player_delta = 0.1f;
+
 STATIC_STRUCT(character)
 
   static constexpr auto addr_vtable_character = RE::Character::VTABLE[0];
@@ -28,9 +31,10 @@ STATIC_STRUCT(character)
   static constexpr auto offset_vtable_update = RELOCATION_OFFSET(0xAD, 0xAD);
   static constexpr auto offset_vtable_drink_potion = RELOCATION_OFFSET(0x10F, 0x10F);
 
-  static auto on_update(RE::Character* character, const float delta) -> void
+  static auto on_update(RE::Character* character, const float) -> void
   {
-    auto ctx = hooks_ctx::on_actor_update{character, delta};
+    auto ctx = hooks_ctx::on_actor_update{character, last_player_delta};
+    features::true_flasks::update(ctx);
   }
 
   static auto on_update_character(RE::Character* character, const float delta) -> void
@@ -46,6 +50,9 @@ STATIC_STRUCT(character)
 
   static auto on_update_player_character(RE::PlayerCharacter* character, const float delta) -> void
   {
+    
+    last_player_delta = delta;
+    
     if (!character || !delta) {
       return on_update_player_character_original(character, delta);
     }
@@ -55,9 +62,10 @@ STATIC_STRUCT(character)
     return on_update_player_character_original(character, delta);
   }
 
-  static auto on_drink_potion(RE::Character* character, RE::AlchemyItem* potion, RE::ExtraDataList* extra_list) -> void
+  static auto on_drink_potion(RE::Character* character, RE::AlchemyItem* potion, RE::ExtraDataList* extra_list) -> bool
   {
     auto ctx = hooks_ctx::on_actor_drink_potion{character, potion, extra_list};
+    return features::true_flasks::drink_potion(ctx);
   }
 
   static auto on_drink_potion_character(RE::Character* character, RE::AlchemyItem* potion, RE::ExtraDataList* extra_list) -> bool
@@ -66,9 +74,8 @@ STATIC_STRUCT(character)
       if (!character || !potion || !extra_list) {
           return on_drink_potion_character_original(character, potion, extra_list);
       }
-      
-    on_drink_potion(character, potion, extra_list);
-    return on_drink_potion_character_original(character, potion, extra_list);
+    
+    return on_drink_potion_character_original(character, potion, extra_list) && on_drink_potion(character, potion, extra_list);
   }
 
   static auto on_drink_potion_player_character(RE::PlayerCharacter* character, RE::AlchemyItem* potion, RE::ExtraDataList* extra_list) -> bool
@@ -77,9 +84,8 @@ STATIC_STRUCT(character)
       if (!character || !potion || !extra_list) {
           return on_drink_potion_player_character_original(character, potion, extra_list);
       }
-      
-    on_drink_potion(character, potion, extra_list);
-    return on_drink_potion_player_character_original(character, potion, extra_list);
+    
+    return on_drink_potion_player_character_original(character, potion, extra_list) && on_drink_potion(character, potion, extra_list);
   }
 
   static inline REL::Relocation<decltype(on_update_character)> on_update_character_original;
