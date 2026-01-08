@@ -224,6 +224,11 @@ window.updateFlaskData = (parametersJson) => {
     }
 };
 
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.firstInitDom();
+});
+
 // For browser debugging: simulate settings if not in game
 /*
 if (!window.prisma) {

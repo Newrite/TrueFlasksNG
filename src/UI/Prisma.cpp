@@ -51,7 +51,7 @@ namespace ui::prisma {
         auto api = core::mods_api_repository::get_prisma_ui();
         if (api) {
             api->Hide(view);
-            api->Invoke(view, "firstInitDom");
+            //api->Invoke(view, "firstInitDom");
             send_settings();
             api->Show(view);
         }
