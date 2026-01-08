@@ -3,6 +3,7 @@ module;
 #define NOMINMAX
 #include <algorithm>
 #include <optional>
+#include <filesystem>
 #include "API/TrueFlasksAPI.h"
 #undef min
 #undef max
@@ -99,6 +100,12 @@ core::actors_cache::cache_data::actor_data::flask_cooldown* get_flasks_array(cor
     return nullptr;
 }
 
+export bool check_behavior_data_injector() {
+    return std::filesystem::exists("Data/SKSE/Plugins/BehaviorDataInjector.dll");
+}
+
+void update_graph_variables(RE::Actor* actor);
+
 export bool drink_potion(const core::hooks_ctx::on_actor_drink_potion& ctx)
 {
   if (ctx.potion->IsFood() || ctx.potion->IsPoison()) {
@@ -181,6 +188,7 @@ export void update(const core::hooks_ctx::on_actor_update& ctx)
   d_data.delta_other = calc_delta(flask_type::Other);
   
   actor_data.update(d_data);
+  update_graph_variables(ctx.actor);
 }
 
 // API Functions
@@ -308,6 +316,41 @@ export auto api_get_cooldown_pct(RE::Actor* actor, const flask_type type) -> flo
     }
     
     return 1.0f;
+}
+
+void update_graph_variables(RE::Actor* actor) {
+    if (!actor || !check_behavior_data_injector()) return;
+
+    auto set_vars = [&](const char* max_name, const char* current_name, flask_type type) {
+        actor->SetGraphVariableInt(max_name, api_get_max_slots(actor, type));
+        actor->SetGraphVariableInt(current_name, api_get_current_slots(actor, type));
+    };
+
+    set_vars("fTrueFlasksHealthMax", "fTrueFlasksHealthCurrent", flask_type::Health);
+    set_vars("fTrueFlasksStaminaMax", "fTrueFlasksStaminaCurrent", flask_type::Stamina);
+    set_vars("fTrueFlasksMagickMax", "fTrueFlasksMagickCurrent", flask_type::Magick);
+    set_vars("fTrueFlasksOtherMax", "fTrueFlasksOtherCurrent", flask_type::Other);
+}
+
+export auto api_get_flask_info(RE::AlchemyItem* potion) -> std::pair<int, bool> {
+    if (!potion) return { -1, false };
+    
+    const auto config = config::config_manager::get_singleton();
+    const auto type_opt = identify_flask_type(potion, config);
+    
+    if (!type_opt.has_value()) {
+        return { -1, false };
+    }
+    
+    const auto type = type_opt.value();
+    
+    // Check if player has available slots for this type
+    const auto player = RE::PlayerCharacter::GetSingleton();
+    if (!player) return { static_cast<int>(type), false };
+    
+    const auto current_slots = api_get_current_slots(player, type);
+    
+    return { static_cast<int>(type), current_slots > 0 };
 }
 
 }

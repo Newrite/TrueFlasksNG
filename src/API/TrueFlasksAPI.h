@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <Windows.h>
+#include <utility>
 
 namespace TrueFlasksAPI
 {
@@ -29,6 +30,7 @@ namespace TrueFlasksAPI
         virtual int GetCurrentSlots(RE::Actor* actor, FlaskType type) noexcept = 0;
         virtual float GetRegenMult(RE::Actor* actor, FlaskType type) noexcept = 0;
         virtual float GetCooldownPct(RE::Actor* actor, FlaskType type) noexcept = 0;
+        virtual std::pair<int, bool> GetFlaskInfo(RE::AlchemyItem* potion) noexcept = 0;
     };
 
     typedef void* (*_RequestPluginAPI)(const InterfaceVersion interfaceVersion);

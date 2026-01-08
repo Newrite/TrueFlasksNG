@@ -1,6 +1,7 @@
 ﻿module;
 
 #include "API/TrueFlasksAPI.h"
+#include <vector>
 
 export module TrueFlasks.Papyrus;
 
@@ -50,6 +51,12 @@ namespace papyrus {
         return api_get_cooldown_pct(actor, int_to_flask_type(type));
     }
 
+    std::vector<int> GetFlaskInfo(RE::StaticFunctionTag*, RE::AlchemyItem* potion) {
+        if (!potion) return { -1, 0 };
+        auto [type, has_slot] = api_get_flask_info(potion);
+        return { type, has_slot ? 1 : 0 };
+    }
+
     export bool Register(RE::BSScript::IVirtualMachine* vm) {
         vm->RegisterFunction("ModifyCooldown", "TrueFlasksNG", ModifyCooldown);
         vm->RegisterFunction("GetNextCooldown", "TrueFlasksNG", GetNextCooldown);
@@ -57,6 +64,7 @@ namespace papyrus {
         vm->RegisterFunction("GetCurrentSlots", "TrueFlasksNG", GetCurrentSlots);
         vm->RegisterFunction("GetRegenMult", "TrueFlasksNG", GetRegenMult);
         vm->RegisterFunction("GetCooldownPct", "TrueFlasksNG", GetCooldownPct);
+        vm->RegisterFunction("GetFlaskInfo", "TrueFlasksNG", GetFlaskInfo);
         return true;
     }
 }

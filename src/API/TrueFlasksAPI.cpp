@@ -32,6 +32,10 @@ namespace api {
         float GetCooldownPct(RE::Actor* actor, FlaskType type) noexcept override {
             return features::true_flasks::api_get_cooldown_pct(actor, static_cast<features::true_flasks::flask_type>(type));
         }
+
+        std::pair<int, bool> GetFlaskInfo(RE::AlchemyItem* potion) noexcept override {
+            return features::true_flasks::api_get_flask_info(potion);
+        }
     };
 
     static TrueFlasksAPI_V1 g_TrueFlasksAPI_V1;
