@@ -21,7 +21,7 @@ auto skse_message_handle(SKSE::MessagingInterface::Message* message) -> void
     case SKSE::MessagingInterface::kDataLoaded: {
         config::config_manager::get_singleton()->initialize();
       core::hooks::install_hooks();
-      ui::prisma::initialize_ui();
+      ui::prisma::initialize();
       events::register_events();
       break;
     }

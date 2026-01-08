@@ -1,7 +1,13 @@
-﻿export module TrueFlasks.Core.ActorsCache;
+﻿module;
+
+#include <optional>
+#include "API/TrueFlasksAPI.h"
+
+export module TrueFlasks.Core.ActorsCache;
 
 namespace core::actors_cache
 {
+
 export struct cache_data final {
 
     struct actor_data final
@@ -32,6 +38,7 @@ export struct cache_data final {
         flask_cooldown flasks_others[FLASK_ARRAY_SIZE];
       
       float anti_spam_duration{0.f};
+      std::optional<TrueFlasksAPI::FlaskType> failed_drink_type;
         
         std::uint64_t last_tick{GetTickCount64()};
       

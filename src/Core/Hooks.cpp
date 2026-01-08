@@ -2,6 +2,7 @@
 
 import TrueFlasks.Core.HooksCtx;
 import TrueFlasks.Features.TrueFlasks;
+import TrueFlasks.UI.Prisma;
 
 namespace core::hooks {
 
@@ -31,9 +32,8 @@ STATIC_STRUCT(character)
   static constexpr auto offset_vtable_update = RELOCATION_OFFSET(0xAD, 0xAD);
   static constexpr auto offset_vtable_drink_potion = RELOCATION_OFFSET(0x10F, 0x10F);
 
-  static auto on_update(RE::Character* character, const float) -> void
+  static auto on_update(hooks_ctx::on_actor_update& ctx) -> void
   {
-    auto ctx = hooks_ctx::on_actor_update{character, last_player_delta};
     features::true_flasks::update(ctx);
   }
 
@@ -43,7 +43,8 @@ STATIC_STRUCT(character)
       return on_update_character_original(character, delta);
     }
 
-    on_update(character, delta);
+    auto ctx = hooks_ctx::on_actor_update{character, last_player_delta};
+    on_update(ctx);
 
     return on_update_character_original(character, delta);
   }
@@ -57,7 +58,9 @@ STATIC_STRUCT(character)
       return on_update_player_character_original(character, delta);
     }
 
-    on_update(character, delta);
+    auto ctx = hooks_ctx::on_actor_update{character, last_player_delta};
+    on_update(ctx);
+    ui::prisma::update(ctx);
 
     return on_update_player_character_original(character, delta);
   }

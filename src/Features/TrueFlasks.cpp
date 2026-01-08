@@ -1,6 +1,9 @@
 module;
 
 #define NOMINMAX
+#include <algorithm>
+#include <optional>
+#include "API/TrueFlasksAPI.h"
 #undef min
 #undef max
 
@@ -14,30 +17,24 @@ import TrueFlasks.Core.Utility;
 namespace features::true_flasks
 {
 
-export enum class flask_type
-{
-  health,
-  stamina,
-  magick,
-  other
-};
+export using flask_type = TrueFlasksAPI::FlaskType;
 
 const config::flask_settings_base* get_settings(const config::config_manager* config, const flask_type type) {
     switch (type) {
-        case flask_type::health: return &config->flasks_health;
-        case flask_type::stamina: return &config->flasks_stamina;
-        case flask_type::magick: return &config->flasks_magick;
-        case flask_type::other: return &config->flasks_other;
+        case flask_type::Health: return &config->flasks_health;
+        case flask_type::Stamina: return &config->flasks_stamina;
+        case flask_type::Magick: return &config->flasks_magick;
+        case flask_type::Other: return &config->flasks_other;
     }
     return nullptr;
 }
 
 std::optional<flask_type> identify_flask_type(const RE::AlchemyItem* potion, const config::config_manager* config) {
-    if (config->flasks_health.keyword && core::utility::try_form_has_keyword(potion, config->flasks_health.keyword)) return flask_type::health;
-    if (config->flasks_stamina.keyword && core::utility::try_form_has_keyword(potion, config->flasks_stamina.keyword)) return flask_type::stamina;
-    if (config->flasks_magick.keyword && core::utility::try_form_has_keyword(potion, config->flasks_magick.keyword)) return flask_type::magick;
+    if (config->flasks_health.keyword && core::utility::try_form_has_keyword(potion, config->flasks_health.keyword)) return flask_type::Health;
+    if (config->flasks_stamina.keyword && core::utility::try_form_has_keyword(potion, config->flasks_stamina.keyword)) return flask_type::Stamina;
+    if (config->flasks_magick.keyword && core::utility::try_form_has_keyword(potion, config->flasks_magick.keyword)) return flask_type::Magick;
     
-    return flask_type::other;
+    return flask_type::Other;
 }
 
 int calculate_max_slots(RE::Actor* actor, const config::flask_settings_base& settings) {
@@ -94,10 +91,10 @@ bool try_use_flask(core::actors_cache::cache_data::actor_data::flask_cooldown* f
 
 core::actors_cache::cache_data::actor_data::flask_cooldown* get_flasks_array(core::actors_cache::cache_data::actor_data& data, const flask_type type) {
     switch (type) {
-        case flask_type::health: return data.flasks_health;
-        case flask_type::stamina: return data.flasks_stamina;
-        case flask_type::magick: return data.flasks_magick;
-        case flask_type::other: return data.flasks_others;
+        case flask_type::Health: return data.flasks_health;
+        case flask_type::Stamina: return data.flasks_stamina;
+        case flask_type::Magick: return data.flasks_magick;
+        case flask_type::Other: return data.flasks_others;
     }
     return nullptr;
 }
@@ -118,7 +115,7 @@ export bool drink_potion(const core::hooks_ctx::on_actor_drink_potion& ctx)
   const auto type = type_opt.value();
   
   // Special logic for Other
-  if (type == flask_type::other) {
+  if (type == flask_type::Other) {
       const auto has_kw = config->flasks_other.exclusive_keyword && core::utility::try_form_has_keyword(ctx.potion, config->flasks_other.exclusive_keyword);
       
       // Если revert_exclusive == has_kw, то тратим слот. Иначе - не тратим.
@@ -153,8 +150,12 @@ export bool drink_potion(const core::hooks_ctx::on_actor_drink_potion& ctx)
       return true;
   }
   
-  if (is_player && !settings->notify.empty()) {
-      RE::DebugNotification(settings->notify.c_str());
+  if (is_player) {
+      if (!settings->notify.empty()) {
+          RE::DebugNotification(settings->notify.c_str());
+      }
+      // Trigger glow in UI via flag
+      actor_data.failed_drink_type = type;
   }
   
   return false;
@@ -174,10 +175,10 @@ export void update(const core::hooks_ctx::on_actor_update& ctx)
       return ctx.delta * mult;
   };
   
-  d_data.delta_health = calc_delta(flask_type::health);
-  d_data.delta_stamina = calc_delta(flask_type::stamina);
-  d_data.delta_magick = calc_delta(flask_type::magick);
-  d_data.delta_other = calc_delta(flask_type::other);
+  d_data.delta_health = calc_delta(flask_type::Health);
+  d_data.delta_stamina = calc_delta(flask_type::Stamina);
+  d_data.delta_magick = calc_delta(flask_type::Magick);
+  d_data.delta_other = calc_delta(flask_type::Other);
   
   actor_data.update(d_data);
 }

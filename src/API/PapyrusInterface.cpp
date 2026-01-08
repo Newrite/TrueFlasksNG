@@ -13,10 +13,10 @@ namespace papyrus {
     // Helper to convert int to flask_type
     flask_type int_to_flask_type(int type) {
         switch (type) {
-            case 0: return flask_type::health;
-            case 1: return flask_type::stamina;
-            case 2: return flask_type::magick;
-            default: return flask_type::other;
+        case 0: return flask_type::Health;
+        case 1: return flask_type::Stamina;
+        case 2: return flask_type::Magick;
+        default: return flask_type::Other;
         }
     }
 

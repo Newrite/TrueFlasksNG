@@ -1,0 +1,53 @@
+﻿body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: transparent;
+    width: 100vw;
+    height: 100vh;
+}
+
+.ui-container {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    /* Initial position, will be updated by JS */
+    top: 0;
+    left: 0;
+    transform-origin: top left;
+}
+
+.flask {
+    position: absolute;
+    width: 240px;
+    height: 240px;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    
+    /* Glow Animation Setup */
+    --glow-color: white;
+    animation: glowAnimation 4s infinite alternate ease-in-out;
+    /* Default paused, JS will play it when needed */
+    animation-play-state: paused; 
+    opacity: 0; /* Hidden by default until initialized */
+}
+
+@keyframes glowAnimation {
+    0%, 85% { 
+        filter: drop-shadow(0 0 0 rgba(0,0,0,0)); 
+    }
+    100% { 
+        /* 
+           Using drop-shadow here. 
+           Because we expand the SVG viewBox in JS, the flask content will be smaller 
+           than the 240x240 object box. This allows the shadow to render 
+           INSIDE the object box, preventing clipping by the game engine.
+        */
+        filter: drop-shadow(0 0 15px var(--glow-color)) drop-shadow(0 0 5px white);
+    }
+}
+
+/* Positioning */
+.flask-top { top: 10px; left: 130px; }
+.flask-left { top: 130px; left: 10px; }
+.flask-right { top: 130px; left: 250px; }
+.flask-bottom { top: 250px; left: 130px; }

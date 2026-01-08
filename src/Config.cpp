@@ -1,5 +1,6 @@
 module;
 
+#define MINI_CASE_SENSITIVE
 #include "library/ini.h"
 
 export module TrueFlasks.Config;
@@ -45,6 +46,29 @@ namespace config {
         RE::BGSKeyword* no_remove_keyword{ nullptr };
     };
 
+    export struct prisma_flask_widget_settings
+    {
+        float x{ 0.5f };
+        float y{ 0.5f };
+        float size{ 0.5f };
+        float opacity{ 0.5f };
+    };
+
+    export struct prisma_widget_settings
+    {
+        bool enable{ true };
+        float x{ 0.25f };
+        float y{ 0.25f };
+        float size{ 1.0f };
+        float opacity{ 0.5f };
+        bool anchor_all_elements{ true };
+
+        prisma_flask_widget_settings health;
+        prisma_flask_widget_settings stamina;
+        prisma_flask_widget_settings magick;
+        prisma_flask_widget_settings other;
+    };
+
     export class config_manager final
     {
     public:
@@ -53,6 +77,7 @@ namespace config {
         flask_settings flasks_health;
         flask_settings flasks_stamina;
         flask_settings flasks_magick;
+        prisma_widget_settings prisma_widget;
 
     private:
         std::filesystem::path config_path_;
@@ -146,6 +171,26 @@ namespace config {
              write_flask_full("FlasksHealth", flasks_health);
              write_flask_full("FlasksStamina", flasks_stamina);
              write_flask_full("FlasksMagick", flasks_magick);
+
+             // PrismaWidget
+             ini["PrismaWidget"]["PrismaEnable"] = prisma_widget.enable ? "1" : "0";
+             ini["PrismaWidget"]["PrismaPositionX"] = std::format("{:.2f}", prisma_widget.x);
+             ini["PrismaWidget"]["PrismaPositionY"] = std::format("{:.2f}", prisma_widget.y);
+             ini["PrismaWidget"]["PrismaSize"] = std::format("{:.2f}", prisma_widget.size);
+             ini["PrismaWidget"]["PrismaOpacity"] = std::format("{:.2f}", prisma_widget.opacity);
+             ini["PrismaWidget"]["PrismaAnchorAllElements"] = prisma_widget.anchor_all_elements ? "1" : "0";
+
+             auto write_prisma_flask = [&](const std::string& prefix, const prisma_flask_widget_settings& s) {
+                 ini["PrismaWidget"][prefix + "X"] = std::format("{:.2f}", s.x);
+                 ini["PrismaWidget"][prefix + "Y"] = std::format("{:.2f}", s.y);
+                 ini["PrismaWidget"][prefix + "Size"] = std::format("{:.2f}", s.size);
+                 ini["PrismaWidget"][prefix + "Opacity"] = std::format("{:.2f}", s.opacity);
+             };
+
+             write_prisma_flask("PrismaFlasksHealth", prisma_widget.health);
+             write_prisma_flask("PrismaFlasksStamina", prisma_widget.stamina);
+             write_prisma_flask("PrismaFlasksMagick", prisma_widget.magick);
+             write_prisma_flask("PrismaFlasksOther", prisma_widget.other);
         }
 
         void generate_default(const mINI::INIFile& file, mINI::INIStructure& ini) {
@@ -215,6 +260,29 @@ namespace config {
             read_flask_full("FlasksHealth", flasks_health);
             read_flask_full("FlasksStamina", flasks_stamina);
             read_flask_full("FlasksMagick", flasks_magick);
+
+            // [PrismaWidget]
+            if (ini.has("PrismaWidget")) {
+                const auto& sec = ini.get("PrismaWidget");
+                if (sec.has("PrismaEnable")) parse_bool(sec.get("PrismaEnable"), prisma_widget.enable);
+                if (sec.has("PrismaPositionX")) parse_float(sec.get("PrismaPositionX"), prisma_widget.x);
+                if (sec.has("PrismaPositionY")) parse_float(sec.get("PrismaPositionY"), prisma_widget.y);
+                if (sec.has("PrismaSize")) parse_float(sec.get("PrismaSize"), prisma_widget.size);
+                if (sec.has("PrismaOpacity")) parse_float(sec.get("PrismaOpacity"), prisma_widget.opacity);
+                if (sec.has("PrismaAnchorAllElements")) parse_bool(sec.get("PrismaAnchorAllElements"), prisma_widget.anchor_all_elements);
+
+                auto read_prisma_flask = [&](const std::string& prefix, prisma_flask_widget_settings& s) {
+                    if (sec.has(prefix + "X")) parse_float(sec.get(prefix + "X"), s.x);
+                    if (sec.has(prefix + "Y")) parse_float(sec.get(prefix + "Y"), s.y);
+                    if (sec.has(prefix + "Size")) parse_float(sec.get(prefix + "Size"), s.size);
+                    if (sec.has(prefix + "Opacity")) parse_float(sec.get(prefix + "Opacity"), s.opacity);
+                };
+
+                read_prisma_flask("PrismaFlasksHealth", prisma_widget.health);
+                read_prisma_flask("PrismaFlasksStamina", prisma_widget.stamina);
+                read_prisma_flask("PrismaFlasksMagick", prisma_widget.magick);
+                read_prisma_flask("PrismaFlasksOther", prisma_widget.other);
+            }
             
             logger::info("Configuration loaded.");
         }
@@ -240,8 +308,9 @@ namespace config {
 
 export void on_menu_event(const events::events_ctx::process_event_menu_ctx& ctx)
 {
-    if (!ctx.is_opening && ctx.menu_name == RE::MainMenu::MENU_NAME) {
+    if (!ctx.is_opening && ctx.menu_name == RE::JournalMenu::MENU_NAME) {
         config_manager::get_singleton()->load();
+        
     }
 }
 
