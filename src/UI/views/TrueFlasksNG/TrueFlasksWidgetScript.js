@@ -1,8 +1,8 @@
 ﻿const flasks = [
-    { id: 'flask-health', type: 0, color: '#6a0020' },
-    { id: 'flask-stamina', type: 1, color: '#2f7d33' },
-    { id: 'flask-magick', type: 2, color: '#2f4ba4' },
-    { id: 'flask-other', type: 3, color: '#7b4997' }
+    {id: 'flask-health', type: 0, color: '#6a0020'},
+    {id: 'flask-stamina', type: 1, color: '#2f7d33'},
+    {id: 'flask-magick', type: 2, color: '#2f4ba4'},
+    {id: 'flask-other', type: 3, color: '#7b4997'}
 ];
 
 // Store references to SVG elements for quick access
@@ -11,7 +11,7 @@ const flaskElements = {};
 function initFlask(item) {
     const obj = document.getElementById(item.id);
     if (!obj) return;
-    
+
     // Set initial glow color
     obj.style.setProperty('--glow-color', item.color);
 
@@ -55,10 +55,10 @@ function initFlask(item) {
                 .flask-counter {
                     font-family: sans-serif;
                     font-weight: 900;
-                    font-size: 62px;
+                    font-size: 82px;
                     fill: white;
                     stroke: black;
-                    stroke-width: 5px;
+                    stroke-width: 10px;
                     paint-order: stroke;
                     pointer-events: none;
                 }
@@ -87,7 +87,7 @@ function initFlask(item) {
             text: textElement,
             wasFull: false
         };
-        
+
         // Make visible if it was hidden by CSS
         // obj.style.opacity = 1; 
     };
@@ -110,7 +110,7 @@ window.setWidgetSettings = (settingsJson) => {
     try {
         const settings = JSON.parse(settingsJson);
         const container = document.getElementById('widget-container');
-        
+
         if (!container) return;
 
         if (!settings.enable) {
@@ -134,7 +134,7 @@ window.setWidgetSettings = (settingsJson) => {
                 el.style.left = '';
                 el.style.top = '';
             }
-            
+
             // Ensure objects are visible (they default to opacity 0 in CSS)
             flasks.forEach(f => {
                 const obj = document.getElementById(f.id);
@@ -154,7 +154,7 @@ window.setWidgetSettings = (settingsJson) => {
                 const item = flasks.find(f => f.type === type);
                 if (!item) return;
                 const el = document.getElementById(item.id);
-                
+
                 if (el) {
                     el.style.left = (s.x * window.innerWidth) + 'px';
                     el.style.top = (s.y * window.innerHeight) + 'px';
@@ -174,22 +174,25 @@ window.setWidgetSettings = (settingsJson) => {
     }
 };
 
-window.updateFlaskData = (parametersJson) => {
-    
-    console.log(parametersJson);
-    
-    const parameters = JSON.parse(parametersJson)
-    const flaskType = parameters.typeIndex;
-    const fillPercent = parameters.percent;
-    const count = parameters.count;
-    const shouldGlow = parameters.forceGlow;
-    
-    console.log(flaskType, fillPercent, count, shouldGlow)
+window.setWidgetSettingsInit = (settingsJson) => {
+    setTimeout(() => window.setWidgetSettings(settingsJson), 1500)
+}
+
+window.updateFlaskData = (args) => {
+    // Format: "type,percent,count,glow"
+    // Example: "0,0.500,5,0"
+
+    if (!args) return;
+    const parts = args.split(',');
+    if (parts.length < 4) return;
+
+    const flaskType = parseInt(parts[0]);
+    const fillPercent = parseFloat(parts[1]);
+    const count = parseInt(parts[2]);
+    const shouldGlow = parts[3] === '1';
 
     const el = flaskElements[flaskType];
     if (!el) return;
-    
-    console.log("Updating flask")
 
     // Update fill
     if (el.fillRect) {
@@ -214,19 +217,19 @@ window.updateFlaskData = (parametersJson) => {
         el.object.style.animationPlayState = 'running';
         // Reset animation after 3 seconds
         setTimeout(() => {
-             el.object.style.animationPlayState = 'paused';
+            el.object.style.animationPlayState = 'paused';
         }, 3000);
     }
-    
+
     // Ensure visibility
     if (el.object.style.opacity === '' || el.object.style.opacity === '0') {
-         el.object.style.opacity = '1';
+        el.object.style.opacity = '1';
     }
 };
 
 
 document.addEventListener('DOMContentLoaded', () => {
-    window.firstInitDom();
+    setTimeout(() => window.firstInitDom(), 1000);
 });
 
 // For browser debugging: simulate settings if not in game
@@ -245,10 +248,10 @@ if (!window.prisma) {
         window.firstInitDom();
         
         // Mock data update
-        window.updateFlaskData(`{"typeIndex": ${0}, "percent": ${0.5}, "count": ${5}, "forceGlow": ${false}}`);
-        window.updateFlaskData(`{"typeIndex": ${1}, "percent": ${1.0}, "count": ${3}, "forceGlow": ${true}}`);
-        window.updateFlaskData(`{"typeIndex": ${2}, "percent": ${0.2}, "count": ${0}, "forceGlow": ${false}}`);
-        window.updateFlaskData(`{"typeIndex": ${3}, "percent": ${0.8}, "count": ${10}, "forceGlow": ${true}}`);
+        window.updateFlaskData("0,0.5,5,0");
+        window.updateFlaskData("1,1.0,3,1");
+        window.updateFlaskData("2,0.2,0,0");
+        window.updateFlaskData("3,0.8,10,1");
     }, 500);
 }
 */

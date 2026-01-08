@@ -46,8 +46,14 @@
     }
 }
 
-/* Positioning */
-.flask-top { top: 10px; left: 130px; }
-.flask-left { top: 130px; left: 10px; }
-.flask-right { top: 130px; left: 250px; }
-.flask-bottom { top: 250px; left: 130px; }
+/* Positioning - Closer together (Spacing 100px from center instead of 120px) */
+/* Center is 250, 250. Flask half-size is 120. */
+/* Top: y = 250 - 100 - 120 = 30 */
+/* Left: x = 250 - 100 - 120 = 30 */
+/* Right: x = 250 + 100 - 120 = 230 */
+/* Bottom: y = 250 + 100 - 120 = 230 */
+
+.flask-top { top: 30px; left: 130px; }
+.flask-left { top: 130px; left: 30px; }
+.flask-right { top: 130px; left: 230px; }
+.flask-bottom { top: 230px; left: 130px; }
