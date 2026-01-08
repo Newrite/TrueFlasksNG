@@ -42,8 +42,8 @@ namespace ui::skse_menu
       if (ImGui::DragFloat("Cooldown Base", &settings.cooldown_base, 1.0f, 0.0f, 3600.0f, "%.1f")) changed = true;
 
       if (changed) {
-        prisma::send_settings();
         config::config_manager::get_singleton()->save();
+        prisma::send_settings();
       }
       ImGui::PopID();
     }
@@ -99,10 +99,10 @@ namespace ui::skse_menu
     if (ImGui::TreeNode(label)) {
       ImGui::PushID(label);
       bool changed = false;
-      if (ImGui::DragFloat("X", &settings.x, 0.01f, 0.0f, 1.0f, "%.2f")) changed = true;
-      if (ImGui::DragFloat("Y", &settings.y, 0.01f, 0.0f, 1.0f, "%.2f")) changed = true;
-      if (ImGui::DragFloat("Size", &settings.size, 0.01f, 0.0f, 5.0f, "%.2f")) changed = true;
-      if (ImGui::DragFloat("Opacity", &settings.opacity, 0.01f, 0.0f, 1.0f, "%.2f")) changed = true;
+      if (ImGui::DragFloat("X", &settings.x, 0.001f, -0.01f, 1.0f, "%.3f")) changed = true;
+      if (ImGui::DragFloat("Y", &settings.y, 0.001f, -0.01f, 1.0f, "%.3f")) changed = true;
+      if (ImGui::DragFloat("Size", &settings.size, 0.001f, 0.0f, 5.0f, "%.3f")) changed = true;
+      if (ImGui::DragFloat("Opacity", &settings.opacity, 0.001f, 0.0f, 1.0f, "%.3f")) changed = true;
 
       if (changed) {
         config::config_manager::get_singleton()->save();
@@ -121,10 +121,10 @@ namespace ui::skse_menu
     if (ImGui::Checkbox("Enable Prisma Widget", &config->prisma_widget.enable)) changed = true;
 
     if (config->prisma_widget.enable) {
-      if (ImGui::DragFloat("Global X", &config->prisma_widget.x, 0.01f, 0.0f, 1.0f, "%.2f")) changed = true;
-      if (ImGui::DragFloat("Global Y", &config->prisma_widget.y, 0.01f, 0.0f, 1.0f, "%.2f")) changed = true;
-      if (ImGui::DragFloat("Global Size", &config->prisma_widget.size, 0.01f, 0.0f, 5.0f, "%.2f")) changed = true;
-      if (ImGui::DragFloat("Global Opacity", &config->prisma_widget.opacity, 0.01f, 0.0f, 1.0f, "%.2f")) changed = true;
+      if (ImGui::DragFloat("Global X", &config->prisma_widget.x, 0.001f, -0.01f, 1.0f, "%.3f")) changed = true;
+      if (ImGui::DragFloat("Global Y", &config->prisma_widget.y, 0.001f, -0.01f, 1.0f, "%.3f")) changed = true;
+      if (ImGui::DragFloat("Global Size", &config->prisma_widget.size, 0.001f, 0.0f, 5.0f, "%.3f")) changed = true;
+      if (ImGui::DragFloat("Global Opacity", &config->prisma_widget.opacity, 0.001f, 0.0f, 1.0f, "%.3f")) changed = true;
       if (ImGui::Checkbox("Anchor All Elements", &config->prisma_widget.anchor_all_elements)) changed = true;
 
       ImGui::Separator();
