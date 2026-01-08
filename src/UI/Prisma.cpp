@@ -20,7 +20,7 @@ namespace ui::prisma {
         return view;
     }
 
-    void send_settings() {
+    export void send_settings() {
         auto api = core::mods_api_repository::get_prisma_ui();
         auto& view = get_view_ref();
         if (!api || !view) return;

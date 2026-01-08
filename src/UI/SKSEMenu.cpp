@@ -6,6 +6,7 @@
 export module TrueFlasks.UI.SKSEMenu;
 
 import TrueFlasks.Config;
+import TrueFlasks.UI.Prisma;
 
 namespace ui::skse_menu {
 
@@ -94,6 +95,7 @@ void render_prisma_flask_widget_settings(const char* label, config::prisma_flask
         
         if (changed) {
             config::config_manager::get_singleton()->save();
+            prisma::send_settings();
         }
         ImGui::TreePop();
     }
