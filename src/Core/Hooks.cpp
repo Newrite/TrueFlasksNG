@@ -65,6 +65,7 @@ namespace core::hooks
       return on_update_player_character_original(character, delta);
     }
 
+    // ExtraList может быть нуллом, т.к. далеко не все объекты несут в себе дополнительную рантайм информацию
     static auto on_drink_potion(RE::Character* character, RE::AlchemyItem* potion,
                                 RE::ExtraDataList* extra_list) -> bool
     {
@@ -75,7 +76,7 @@ namespace core::hooks
     static auto on_drink_potion_character(RE::Character* character, RE::AlchemyItem* potion,
                                           RE::ExtraDataList* extra_list) -> bool
     {
-      if (!character || !potion || !extra_list) {
+      if (!character || !potion) {
         return on_drink_potion_character_original(character, potion, extra_list);
       }
 
@@ -86,7 +87,7 @@ namespace core::hooks
     static auto on_drink_potion_player_character(RE::PlayerCharacter* character, RE::AlchemyItem* potion,
                                                  RE::ExtraDataList* extra_list) -> bool
     {
-      if (!character || !potion || !extra_list) {
+      if (!character || !potion) {
         return on_drink_potion_player_character_original(character, potion, extra_list);
       }
 

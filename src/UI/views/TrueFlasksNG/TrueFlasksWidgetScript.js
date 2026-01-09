@@ -48,7 +48,8 @@ function initFlask(item) {
                     transform-box: fill-box;
                     transform: scaleY(0);
                     /* Используем transform для анимации уровня — это дешевле для CPU */
-                    transition: transform 0.3s ease-out;
+                    /* Fast transition for responsiveness */
+                    transition: transform 0.1s linear;
                     will-change: transform; /* Подсказка рендеру */
                 }
             `;
@@ -102,7 +103,7 @@ window.setWidgetSettings = (settingsJson) => {
             container.style.transform = `scale(${settings.size})`;
             container.style.opacity = settings.opacity;
 
-            // Сброс индивидуальных стилей и показ элементов
+            // Сброс индивидуальных стилей и показ элементов (если они включены)
             flasks.forEach(item => {
                 let wrapper;
                 if (flaskElements[item.type] && flaskElements[item.type].wrapper) {
@@ -113,12 +114,23 @@ window.setWidgetSettings = (settingsJson) => {
                 }
 
                 if (wrapper) {
+                    // Получаем настройки для конкретной фласки
+                    const flaskSettings = 
+                        (item.type === 0) ? settings.health :
+                        (item.type === 1) ? settings.stamina :
+                        (item.type === 2) ? settings.magick :
+                        settings.other;
+
                     wrapper.style.transform = '';
                     wrapper.style.left = '';
                     wrapper.style.top = '';
-                    // Сбрасываем прозрачность, установленную индивидуальными настройками,
-                    // и устанавливаем 1, чтобы перекрыть CSS opacity: 0
-                    wrapper.style.opacity = '1';
+                    
+                    // Если фласка выключена в конфиге, скрываем её
+                    if (flaskSettings && flaskSettings.enabled === false) {
+                        wrapper.style.opacity = '0';
+                    } else {
+                        wrapper.style.opacity = '1';
+                    }
                 }
             });
 
@@ -144,6 +156,13 @@ window.setWidgetSettings = (settingsJson) => {
                 
                 if (!el) return;
 
+                if (s.enabled === false) {
+                    el.style.opacity = '0';
+                    return;
+                }
+
+                // If settings object is missing or disabled logic is needed
+                // For now apply what we have
                 el.style.left = (s.x * window.innerWidth) + 'px';
                 el.style.top = (s.y * window.innerHeight) + 'px';
                 el.style.transform = `scale(${s.size})`;
@@ -197,9 +216,31 @@ window.updateFlaskData = (args) => {
     const el = flaskElements[flaskType];
     if (!el) return;
 
+    // Fix Visual Sync: Clamp visual fill
+    // Logic: 
+    // If count > 0, flask is visually full (1.0).
+    // If count == 0, flask shows cooldown progress (fillPercent).
+    // But we want to avoid it looking full when it's almost done cooling down.
+    
+    let visualPercent = fillPercent;
+    
+    // Fix Visual Range: Map 0.0-1.0 to the visible liquid area
+    // The fillRect covers the whole canvas (484px), but liquid is only in the middle.
+    // Approx range: 15% to 90%
+    const minVis = 0.15;
+    const maxVis = 0.90;
+    
+    let mappedPercent = 0;
+    if (visualPercent > 0.01) {
+         mappedPercent = minVis + (visualPercent * (maxVis - minVis));
+    }
+    // If fully full (1.0), ensure it covers everything just in case
+    if (visualPercent >= 1.0) mappedPercent = 1.0;
+
+
     // Обновляем уровень жидкости
     if (el.fillRect) {
-        el.fillRect.style.transform = `scaleY(${fillPercent})`;
+        el.fillRect.style.transform = `scaleY(${mappedPercent})`;
     }
 
     // Обновляем текст (HTML элемент)
@@ -209,21 +250,23 @@ window.updateFlaskData = (args) => {
     }
 
     // Логика свечения (анимация на объекте svg)
-    const isFull = fillPercent >= 0.99;
+    // Glow if full (count > 0) and wasn't before? Or if cooldown finished?
+    // "Если банка не была заполнена и заполнилась" -> transition from count=0 to count=1
+    // Or transition from fillPercent < 1.0 to fillPercent >= 1.0 (which usually coincides with count increment)
+    
+    // Let's track "isReady" state. Ready means count > 0.
+    const isReady = count > 0;
     let triggerGlow = shouldGlow;
 
-    if (isFull && !el.wasFull) {
+    if (isReady && !el.wasFull) {
         triggerGlow = true;
     }
-    el.wasFull = isFull;
+    el.wasFull = isReady;
 
     if (triggerGlow) {
-        // Важно: для CPU рендеринга лучше не использовать box-shadow анимации.
-        // Ограничиваемся opacity или transform анимациями, если они прописаны в CSS самого элемента.
-        el.object.style.animationPlayState = 'running';
-        setTimeout(() => {
-            el.object.style.animationPlayState = 'paused';
-        }, 3000);
+        el.object.classList.remove('glowing');
+        void el.object.offsetWidth; // Trigger reflow
+        el.object.classList.add('glowing');
     }
 
     // Убедимся, что враппер видим

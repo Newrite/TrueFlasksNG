@@ -14,6 +14,38 @@ import TrueFlasks.Events.EventsCtx;
 
 namespace ui::prisma
 {
+  struct flask_widget_settings
+  {
+    float x{0.5f};
+    float y{0.5f};
+    float size{0.5f};
+    float opacity{0.5f};
+    bool enabled{true};
+  };
+
+  struct global_widget_settings
+  {
+    bool enable{true};
+    float x{0.25f};
+    float y{0.25f};
+    float size{1.0f};
+    float opacity{0.5f};
+    bool anchor_all{true};
+
+    flask_widget_settings health;
+    flask_widget_settings stamina;
+    flask_widget_settings magick;
+    flask_widget_settings other;
+  };
+  
+  struct flask_update_data
+  {
+      int typeIndex;
+      float percent;
+      int count;
+      bool forceGlow;
+  };
+
   auto get_view_ref() -> PrismaView&
   {
     static PrismaView view = 0;
@@ -26,20 +58,35 @@ namespace ui::prisma
     auto& view = get_view_ref();
     if (!api || !view) return;
 
-    const auto& cfg = config::config_manager::get_singleton()->prisma_widget;
+    const auto config = config::config_manager::get_singleton();
+    const auto& cfg = config->prisma_widget;
 
-    std::string json = std::format(
-      R"({{ "enable": {}, "x": {:.2f}, "y": {:.2f}, "size": {:.2f}, "opacity": {:.2f}, "anchor_all": {}, 
-            "health": {{ "x": {:.2f}, "y": {:.2f}, "size": {:.2f}, "opacity": {:.2f} }},
-            "stamina": {{ "x": {:.2f}, "y": {:.2f}, "size": {:.2f}, "opacity": {:.2f} }},
-            "magick": {{ "x": {:.2f}, "y": {:.2f}, "size": {:.2f}, "opacity": {:.2f} }},
-            "other": {{ "x": {:.2f}, "y": {:.2f}, "size": {:.2f}, "opacity": {:.2f} }} }})",
-      cfg.enable ? "true" : "false", cfg.x, cfg.y, cfg.size, cfg.opacity, cfg.anchor_all_elements ? "true" : "false",
-      cfg.health.x, cfg.health.y, cfg.health.size, cfg.health.opacity,
-      cfg.stamina.x, cfg.stamina.y, cfg.stamina.size, cfg.stamina.opacity,
-      cfg.magick.x, cfg.magick.y, cfg.magick.size, cfg.magick.opacity,
-      cfg.other.x, cfg.other.y, cfg.other.size, cfg.other.opacity
-      );
+    global_widget_settings settings;
+    settings.enable = cfg.enable;
+    settings.x = cfg.x;
+    settings.y = cfg.y;
+    settings.size = cfg.size;
+    settings.opacity = cfg.opacity;
+    settings.anchor_all = cfg.anchor_all_elements;
+
+    auto fill_flask_settings = [&](flask_widget_settings& out, const config::prisma_flask_widget_settings& in, const config::flask_settings_base& base) {
+        out.x = in.x;
+        out.y = in.y;
+        out.size = in.size;
+        out.opacity = in.opacity;
+        out.enabled = base.enable && base.player;
+    };
+
+    fill_flask_settings(settings.health, cfg.health, config->flasks_health);
+    fill_flask_settings(settings.stamina, cfg.stamina, config->flasks_stamina);
+    fill_flask_settings(settings.magick, cfg.magick, config->flasks_magick);
+    fill_flask_settings(settings.other, cfg.other, config->flasks_other);
+
+    std::string json;
+    if (const auto ec = glz::write_json(settings, json)) {
+      logger::error("Failed to serialize global_widget_settings, error code: {}", static_cast<int>(ec.ec));
+      return;
+    }
 
     if (init) {
       api->InteropCall(view, "setWidgetSettingsInit", json.c_str());
@@ -106,10 +153,14 @@ namespace ui::prisma
       last_states[type_idx].fill_percent = pct;
       last_states[type_idx].count = count;
 
-      // InteropCall accepts only one string argument.
-      // We use CSV format: "type,fillPercent,count,shouldGlow"
-      std::string args = std::format("{},{:.3f},{},{}", type_idx, pct, count, force_glow ? "1" : "0");
-      api->InteropCall(view, "updateFlaskData", args.c_str());
+      flask_update_data data{type_idx, pct, count, force_glow};
+      std::string json;
+      if (const auto ec = glz::write_json(data, json)) {
+        logger::error("Failed to serialize flask_update_data, error code: {}", static_cast<int>(ec.ec));
+        return;
+      }
+      
+      api->InteropCall(view, "updateFlaskData", json.c_str());
     }
   }
 
