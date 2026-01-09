@@ -12,7 +12,7 @@ namespace logger = SKSE::log;
 namespace stl = SKSE::stl;
 using namespace std::literals;
 
-// Просто "статик" класс для удобного доступа элементов друг к другу (полезо при хуках)
+// Просто "статик" класс для удобного доступа элементов друг к другу (полезно при хуках)
 #define STATIC_STRUCT(struct_name) \
 struct struct_name final \
 { \
