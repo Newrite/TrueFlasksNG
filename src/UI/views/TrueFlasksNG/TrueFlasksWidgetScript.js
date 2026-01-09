@@ -1,37 +1,35 @@
 ﻿const flasks = [
-    {id: 'flask-health', type: 0, color: '#6a0020'},
-    {id: 'flask-stamina', type: 1, color: '#2f7d33'},
-    {id: 'flask-magick', type: 2, color: '#2f4ba4'},
-    {id: 'flask-other', type: 3, color: '#7b4997'}
+    { id: 'flask-health', type: 0, color: '#6a0020' },
+    { id: 'flask-stamina', type: 1, color: '#2f7d33' },
+    { id: 'flask-magick', type: 2, color: '#2f4ba4' },
+    { id: 'flask-other', type: 3, color: '#7b4997' }
 ];
 
-// Store references to SVG elements for quick access
+// Кэш элементов
 const flaskElements = {};
 
 function initFlask(item) {
     const obj = document.getElementById(item.id);
     if (!obj) return;
 
-    // Set initial glow color
+    // Устанавливаем цвет свечения (используется в CSS анимациях, если они есть)
     obj.style.setProperty('--glow-color', item.color);
 
     const setupSvg = () => {
-        // Prevent double initialization
         if (flaskElements[item.type]) return;
 
         const svgDoc = obj.contentDocument;
         if (!svgDoc) {
-            console.warn(`Cannot access content of ${item.id}. Check CORS or loading state.`);
+            console.warn(`Cannot access content of ${item.id}.`);
             return;
         }
 
         const svgRoot = svgDoc.documentElement;
 
-        // 1. Expand viewBox
-        // Check if already expanded to avoid repeated expansion on reload
+        // 1. Расширяем viewBox, чтобы текст и обводка не обрезались
         if (!svgRoot.hasAttribute('data-expanded')) {
             const originalVB = svgRoot.getAttribute('viewBox').split(' ').map(parseFloat);
-            const padding = 80;
+            const padding = 80; // Запас места
             const newX = originalVB[0] - padding;
             const newY = originalVB[1] - padding;
             const newW = originalVB[2] + (padding * 2);
@@ -40,7 +38,7 @@ function initFlask(item) {
             svgRoot.setAttribute('data-expanded', 'true');
         }
 
-        // 2. Inject Styles
+        // 2. Внедряем стили (ОПТИМИЗИРОВАНО ДЛЯ CPU)
         if (!svgDoc.getElementById('flask-styles')) {
             const styleElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "style");
             styleElement.id = 'flask-styles';
@@ -48,30 +46,44 @@ function initFlask(item) {
                 #flask-fill-rect {
                     transform-origin: bottom;
                     transform-box: fill-box;
-                    transform: scaleY(0); /* Start empty or controlled by JS */
-                    transition: transform 0.5s ease-out;
+                    transform: scaleY(0);
+                    /* Используем transform для анимации уровня — это дешевле для CPU */
+                    transition: transform 0.3s ease-out;
+                    will-change: transform; /* Подсказка рендеру */
                 }
 
                 .flask-counter {
-                    font-family: sans-serif;
-                    font-weight: 900;
-                    font-size: 82px;
-                    fill: white;
-                    stroke: black;
-                    stroke-width: 10px;
-                    paint-order: stroke;
+                    font-family: 'Impact', 'Bahnschrift', sans-serif;
+                    font-weight: 400;
+                    font-size: 90px;
+
+                    /* === ОПТИМИЗАЦИЯ ПОД CPU === */
+                    fill: white;           /* Цвет заливки */
+                    stroke: black;         /* Цвет обводки (нативный SVG) */
+                    stroke-width: 5px;     /* Толщина обводки */
+                    stroke-linejoin: round; /* Скругленные углы обводки */
+
+                    /* Ключевое свойство: рисует обводку ПОЗАДИ заливки */
+                    /* Поддерживается в WebKit 615+ */
+                    paint-order: stroke fill;
+
+                    letter-spacing: 2px;
                     pointer-events: none;
+                    user-select: none;
+
+                    /* Убираем text-shadow, так как stroke делает работу быстрее и чище */
                 }
             `;
             svgDoc.documentElement.appendChild(styleElement);
         }
 
-        // 3. Inject Text Element
+        // 3. Создаем текстовый элемент
         let textElement = svgDoc.querySelector('.flask-counter');
         if (!textElement) {
             textElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "text");
             textElement.textContent = "";
             textElement.setAttribute("class", "flask-counter");
+            // Координаты центрирования (подбираются под SVG)
             textElement.setAttribute("x", "242");
             textElement.setAttribute("y", "266");
             textElement.setAttribute("dominant-baseline", "central");
@@ -79,7 +91,7 @@ function initFlask(item) {
             svgRoot.appendChild(textElement);
         }
 
-        // Store references
+        // Сохраняем ссылки
         flaskElements[item.type] = {
             object: obj,
             svgRoot: svgRoot,
@@ -87,12 +99,8 @@ function initFlask(item) {
             text: textElement,
             wasFull: false
         };
-
-        // Make visible if it was hidden by CSS
-        // obj.style.opacity = 1; 
     };
 
-    // Try to setup immediately if loaded, otherwise wait for load
     if (obj.contentDocument && obj.contentDocument.documentElement) {
         setupSvg();
     } else {
@@ -104,8 +112,7 @@ window.firstInitDom = () => {
     flasks.forEach(initFlask);
 }
 
-// Global functions called from C++
-
+// === Настройки виджета ===
 window.setWidgetSettings = (settingsJson) => {
     try {
         const settings = JSON.parse(settingsJson);
@@ -120,13 +127,12 @@ window.setWidgetSettings = (settingsJson) => {
         container.style.display = 'block';
 
         if (settings.anchor_all) {
-            // Global positioning
             container.style.left = (settings.x * window.innerWidth) + 'px';
             container.style.top = (settings.y * window.innerHeight) + 'px';
             container.style.transform = `scale(${settings.size})`;
             container.style.opacity = settings.opacity;
 
-            // Reset individual flask styles if they were set
+            // Сброс индивидуальных стилей
             for (const key in flaskElements) {
                 const el = flaskElements[key].object;
                 el.style.transform = '';
@@ -135,22 +141,18 @@ window.setWidgetSettings = (settingsJson) => {
                 el.style.top = '';
             }
 
-            // Ensure objects are visible (they default to opacity 0 in CSS)
             flasks.forEach(f => {
                 const obj = document.getElementById(f.id);
                 if (obj) obj.style.opacity = '1';
             });
 
         } else {
-            // Individual positioning
             container.style.left = '0px';
             container.style.top = '0px';
             container.style.transform = 'scale(1)';
             container.style.opacity = '1';
 
             const applyFlaskSettings = (type, s) => {
-                // We need to access the DOM element even if flaskElements is not fully init yet
-                // (e.g. SVG loading)
                 const item = flasks.find(f => f.type === type);
                 if (!item) return;
                 const el = document.getElementById(item.id);
@@ -175,36 +177,53 @@ window.setWidgetSettings = (settingsJson) => {
 };
 
 window.setWidgetSettingsInit = (settingsJson) => {
-    setTimeout(() => window.setWidgetSettings(settingsJson), 1500)
+    setTimeout(() => window.setWidgetSettings(settingsJson), 1500);
 }
 
+// === Обновление данных (Поддержка JSON) ===
 window.updateFlaskData = (args) => {
-    // Format: "type,percent,count,glow"
-    // Example: "0,0.500,5,0"
-
     if (!args) return;
-    const parts = args.split(',');
-    if (parts.length < 4) return;
 
-    const flaskType = parseInt(parts[0]);
-    const fillPercent = parseFloat(parts[1]);
-    const count = parseInt(parts[2]);
-    const shouldGlow = parts[3] === '1';
+    let flaskType, fillPercent, count, shouldGlow;
+
+    // Проверяем, пришел ли JSON (начинается с {)
+    if (args.trim().startsWith('{')) {
+        try {
+            const params = JSON.parse(args);
+            flaskType = parseInt(params.typeIndex);
+            fillPercent = parseFloat(params.percent);
+            count = parseInt(params.count);
+            // Преобразуем строку "true" в булево
+            shouldGlow = (String(params.forceGlow).toLowerCase() === 'true');
+        } catch(e) {
+            console.error("JSON parse error", e);
+            return;
+        }
+    } else {
+        // Старый формат CSV: "0,0.5,5,1"
+        const parts = args.split(',');
+        if (parts.length < 4) return;
+        flaskType = parseInt(parts[0]);
+        fillPercent = parseFloat(parts[1]);
+        count = parseInt(parts[2]);
+        shouldGlow = parts[3] === '1';
+    }
 
     const el = flaskElements[flaskType];
     if (!el) return;
 
-    // Update fill
+    // Обновляем уровень жидкости
     if (el.fillRect) {
         el.fillRect.style.transform = `scaleY(${fillPercent})`;
     }
 
-    // Update text
+    // Обновляем текст
     if (el.text) {
+        // Показываем цифру только если она больше 0
         el.text.textContent = count > 0 ? count : "";
     }
 
-    // Glow logic
+    // Логика свечения
     const isFull = fillPercent >= 0.99;
     let triggerGlow = shouldGlow;
 
@@ -214,44 +233,19 @@ window.updateFlaskData = (args) => {
     el.wasFull = isFull;
 
     if (triggerGlow) {
+        // Важно: для CPU рендеринга лучше не использовать box-shadow анимации.
+        // Ограничиваемся opacity или transform анимациями, если они прописаны в CSS самого элемента.
         el.object.style.animationPlayState = 'running';
-        // Reset animation after 3 seconds
         setTimeout(() => {
             el.object.style.animationPlayState = 'paused';
         }, 3000);
     }
 
-    // Ensure visibility
     if (el.object.style.opacity === '' || el.object.style.opacity === '0') {
         el.object.style.opacity = '1';
     }
 };
 
-
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => window.firstInitDom(), 1000);
 });
-
-// For browser debugging: simulate settings if not in game
-/*
-if (!window.prisma) {
-    setTimeout(() => {
-        const mockSettings = {
-            enable: true,
-            x: 0.25, y: 0.25, size: 1.0, opacity: 1.0, anchor_all: true,
-            health: {x:0,y:0,size:1,opacity:1},
-            stamina: {x:0,y:0,size:1,opacity:1},
-            magick: {x:0,y:0,size:1,opacity:1},
-            other: {x:0,y:0,size:1,opacity:1}
-        };
-        window.setWidgetSettings(JSON.stringify(mockSettings));
-        window.firstInitDom();
-        
-        // Mock data update
-        window.updateFlaskData("0,0.5,5,0");
-        window.updateFlaskData("1,1.0,3,1");
-        window.updateFlaskData("2,0.2,0,0");
-        window.updateFlaskData("3,0.8,10,1");
-    }, 500);
-}
-*/
