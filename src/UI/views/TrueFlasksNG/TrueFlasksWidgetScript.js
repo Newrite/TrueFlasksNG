@@ -1,8 +1,8 @@
-﻿const flasks = [
-    { id: 'flask-health', type: 0, color: '#6a0020' },
-    { id: 'flask-stamina', type: 1, color: '#2f7d33' },
-    { id: 'flask-magick', type: 2, color: '#2f4ba4' },
-    { id: 'flask-other', type: 3, color: '#7b4997' }
+const flasks = [
+    { id: 'flask-health', counterId: 'flask-counter-health', type: 0, color: '#6a0020' },
+    { id: 'flask-stamina', counterId: 'flask-counter-stamina', type: 1, color: '#2f7d33' },
+    { id: 'flask-magick', counterId: 'flask-counter-magick', type: 2, color: '#2f4ba4' },
+    { id: 'flask-other', counterId: 'flask-counter-other', type: 3, color: '#7b4997' }
 ];
 
 // Кэш элементов
@@ -51,49 +51,19 @@ function initFlask(item) {
                     transition: transform 0.3s ease-out;
                     will-change: transform; /* Подсказка рендеру */
                 }
-
-                .flask-counter {
-                    font-family: 'Impact', 'Bahnschrift', sans-serif;
-                    font-weight: 400;
-                    font-size: 90px;
-
-                    /* === ОПТИМИЗАЦИЯ ПОД CPU === */
-                    fill: white;           /* Цвет заливки */
-                    stroke: black;         /* Цвет обводки (нативный SVG) */
-                    stroke-width: 5px;     /* Толщина обводки */
-                    stroke-linejoin: round; /* Скругленные углы обводки */
-
-                    /* Ключевое свойство: рисует обводку ПОЗАДИ заливки */
-                    /* Поддерживается в WebKit 615+ */
-                    paint-order: stroke fill;
-
-                    letter-spacing: 2px;
-                    pointer-events: none;
-                    user-select: none;
-
-                    /* Убираем text-shadow, так как stroke делает работу быстрее и чище */
-                }
             `;
             svgDoc.documentElement.appendChild(styleElement);
         }
 
-        // 3. Создаем текстовый элемент
-        let textElement = svgDoc.querySelector('.flask-counter');
-        if (!textElement) {
-            textElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "text");
-            textElement.textContent = "";
-            textElement.setAttribute("class", "flask-counter");
-            // Координаты центрирования (подбираются под SVG)
-            textElement.setAttribute("x", "242");
-            textElement.setAttribute("y", "266");
-            textElement.setAttribute("dominant-baseline", "central");
-            textElement.setAttribute("text-anchor", "middle");
-            svgRoot.appendChild(textElement);
-        }
+        // 3. Ссылка на HTML текстовый элемент
+        const textElement = document.getElementById(item.counterId);
 
         // Сохраняем ссылки
+        // object: сам object tag (для glow animation)
+        // wrapper: родительский div (для позиционирования)
         flaskElements[item.type] = {
             object: obj,
+            wrapper: obj.parentElement,
             svgRoot: svgRoot,
             fillRect: svgDoc.getElementById('flask-fill-rect'),
             text: textElement,
@@ -132,18 +102,24 @@ window.setWidgetSettings = (settingsJson) => {
             container.style.transform = `scale(${settings.size})`;
             container.style.opacity = settings.opacity;
 
-            // Сброс индивидуальных стилей
-            for (const key in flaskElements) {
-                const el = flaskElements[key].object;
-                el.style.transform = '';
-                el.style.opacity = '';
-                el.style.left = '';
-                el.style.top = '';
-            }
+            // Сброс индивидуальных стилей и показ элементов
+            flasks.forEach(item => {
+                let wrapper;
+                if (flaskElements[item.type] && flaskElements[item.type].wrapper) {
+                    wrapper = flaskElements[item.type].wrapper;
+                } else {
+                    const obj = document.getElementById(item.id);
+                    if (obj) wrapper = obj.parentElement;
+                }
 
-            flasks.forEach(f => {
-                const obj = document.getElementById(f.id);
-                if (obj) obj.style.opacity = '1';
+                if (wrapper) {
+                    wrapper.style.transform = '';
+                    wrapper.style.left = '';
+                    wrapper.style.top = '';
+                    // Сбрасываем прозрачность, установленную индивидуальными настройками,
+                    // и устанавливаем 1, чтобы перекрыть CSS opacity: 0
+                    wrapper.style.opacity = '1';
+                }
             });
 
         } else {
@@ -153,16 +129,25 @@ window.setWidgetSettings = (settingsJson) => {
             container.style.opacity = '1';
 
             const applyFlaskSettings = (type, s) => {
-                const item = flasks.find(f => f.type === type);
-                if (!item) return;
-                const el = document.getElementById(item.id);
-
-                if (el) {
-                    el.style.left = (s.x * window.innerWidth) + 'px';
-                    el.style.top = (s.y * window.innerHeight) + 'px';
-                    el.style.transform = `scale(${s.size})`;
-                    el.style.opacity = s.opacity;
+                let el;
+                // Try cache
+                if (flaskElements[type] && flaskElements[type].wrapper) {
+                    el = flaskElements[type].wrapper;
+                } else {
+                    // Fallback to DOM
+                    const item = flasks.find(f => f.type === type);
+                    if (item) {
+                        const obj = document.getElementById(item.id);
+                        if (obj) el = obj.parentElement;
+                    }
                 }
+                
+                if (!el) return;
+
+                el.style.left = (s.x * window.innerWidth) + 'px';
+                el.style.top = (s.y * window.innerHeight) + 'px';
+                el.style.transform = `scale(${s.size})`;
+                el.style.opacity = s.opacity;
             };
 
             applyFlaskSettings(0, settings.health);
@@ -217,13 +202,13 @@ window.updateFlaskData = (args) => {
         el.fillRect.style.transform = `scaleY(${fillPercent})`;
     }
 
-    // Обновляем текст
+    // Обновляем текст (HTML элемент)
     if (el.text) {
         // Показываем цифру только если она больше 0
         el.text.textContent = count > 0 ? count : "";
     }
 
-    // Логика свечения
+    // Логика свечения (анимация на объекте svg)
     const isFull = fillPercent >= 0.99;
     let triggerGlow = shouldGlow;
 
@@ -241,8 +226,9 @@ window.updateFlaskData = (args) => {
         }, 3000);
     }
 
-    if (el.object.style.opacity === '' || el.object.style.opacity === '0') {
-        el.object.style.opacity = '1';
+    // Убедимся, что враппер видим
+    if (el.wrapper && (el.wrapper.style.opacity === '' || el.wrapper.style.opacity === '0')) {
+        el.wrapper.style.opacity = '1';
     }
 };
 
