@@ -6,6 +6,7 @@
 #include <SKSE/SKSE.h>
 #include <SKSE/API.h>
 #include <ranges>
+#include <glaze/glaze.hpp>
 
 namespace logger = SKSE::log;
 namespace stl = SKSE::stl;

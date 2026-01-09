@@ -3,6 +3,7 @@ set_xmakever("3.0.5")
 
 -- includes
 includes(os.getenv("CommonLibSSE-NG"))
+add_requires("glaze")
 
 -- set project
 set_project("TrueFlasksNG")
@@ -30,11 +31,15 @@ set_config("skse_xbyak", true)
 
 rule("prisma_ui_resources")
     set_extensions(".html", ".css", ".js", ".svg")
+    
 
 -- targets
 target("TrueFlasksNG")
+    add_packages("glaze")
+    
     -- add dependencies to target
     add_deps("commonlibsse-ng")
+    
 
     -- add commonlibsse-ng plugin
     add_rules("commonlibsse-ng.plugin", {
