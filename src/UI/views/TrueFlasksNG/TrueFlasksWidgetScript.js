@@ -253,7 +253,7 @@ window.updateFlaskData = (args) => {
 
         if (globalSettings.auto_hide) {
              // Apply fade
-             el.wrapper.style.transition = 'opacity 0.5s ease';
+             el.wrapper.style.transition = 'opacity 1.5s ease';
              el.wrapper.style.opacity = targetOpacity;
         }
     }
@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Запускаем только когда все картинки и стили полностью загрузились
 
-const DEBUG_FLASKS = false;
+const DEBUG_FLASKS = true;
 
 window.addEventListener('load', function() {
     
