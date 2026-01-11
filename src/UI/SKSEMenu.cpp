@@ -119,6 +119,7 @@ namespace ui::skse_menu
     bool changed = false;
 
     if (ImGui::Checkbox("Enable Prisma Widget", &config->prisma_widget.enable)) changed = true;
+    if (ImGui::Checkbox("Auto Hide UI", &config->main.auto_hide_ui)) changed = true;
 
     if (config->prisma_widget.enable) {
       if (ImGui::DragFloat("Global X", &config->prisma_widget.x, 0.001f, -1.00f, 1.0f, "%.3f")) changed = true;

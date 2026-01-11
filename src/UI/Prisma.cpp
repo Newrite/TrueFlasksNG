@@ -31,6 +31,7 @@ namespace ui::prisma
     float size{1.0f};
     float opacity{0.5f};
     bool anchor_all{true};
+    bool auto_hide{false};
 
     flask_widget_settings health;
     flask_widget_settings stamina;
@@ -43,6 +44,7 @@ namespace ui::prisma
       int typeIndex;
       float percent;
       int count;
+      int max_slots;
       bool forceGlow;
   };
 
@@ -68,6 +70,7 @@ namespace ui::prisma
     settings.size = cfg.size;
     settings.opacity = cfg.opacity;
     settings.anchor_all = cfg.anchor_all_elements;
+    settings.auto_hide = config->main.auto_hide_ui;
 
     auto fill_flask_settings = [&](flask_widget_settings& out, const config::prisma_flask_widget_settings& in, const config::flask_settings_base& base) {
         out.x = in.x;
@@ -138,6 +141,7 @@ namespace ui::prisma
   {
     float fill_percent{-1.0f};
     int count{-1};
+    int max_slots{-1};
   };
 
   flask_state last_states[4];
@@ -145,21 +149,37 @@ namespace ui::prisma
   void update_flask(PRISMA_UI_API::IVPrismaUI1* api, PrismaView view, RE::Actor* actor, TrueFlasksAPI::FlaskType type,
                     int type_idx, bool force_glow = false)
   {
+    // Получаем данные
     float pct = features::true_flasks::api_get_cooldown_pct(actor, type);
     int count = features::true_flasks::api_get_current_slots(actor, type);
+    int max_slots = features::true_flasks::api_get_max_slots(actor, type);
 
-    if (force_glow || std::abs(pct - last_states[type_idx].fill_percent) > 0.001f || count != last_states[type_idx].
-        count) {
+    // Проверяем изменения
+    // Мы отправляем данные, если:
+    // 1. Форсировано свечение (неудачная попытка выпить)
+    // 2. Изменился процент заполнения (с порогом для оптимизации)
+    // 3. Изменилось количество зарядов (КРИТИЧНО для цифры и финального свечения)
+    // 4. Изменилось максимальное количество зарядов (для автоскрытия)
+    bool pct_changed = std::abs(pct - last_states[type_idx].fill_percent) > 0.005f; // Чуть увеличил порог, 0.001 слишком часто
+    bool count_changed = count != last_states[type_idx].count;
+    bool max_slots_changed = max_slots != last_states[type_idx].max_slots;
+
+    if (force_glow || pct_changed || count_changed || max_slots_changed) {
+      
       last_states[type_idx].fill_percent = pct;
       last_states[type_idx].count = count;
+      last_states[type_idx].max_slots = max_slots;
 
-      flask_update_data data{type_idx, pct, count, force_glow};
+      flask_update_data data{type_idx, pct, count, max_slots, force_glow};
+      
       std::string json;
+      // Используем write_json из glaze, как и было
       if (const auto ec = glz::write_json(data, json)) {
-        logger::error("Failed to serialize flask_update_data, error code: {}", static_cast<int>(ec.ec));
+        // Логирование ошибки можно убрать в релизе для спама
         return;
       }
       
+      // Используем InteropCall для максимальной скорости обновления
       api->InteropCall(view, "updateFlaskData", json.c_str());
     }
   }
@@ -179,19 +199,11 @@ namespace ui::prisma
     bool glow_magick = false;
     bool glow_other = false;
 
-    if (actor_data.failed_drink_type.has_value()) {
-      switch (*actor_data.failed_drink_type) {
-      case TrueFlasksAPI::FlaskType::Health: glow_health = true;
-        break;
-      case TrueFlasksAPI::FlaskType::Stamina: glow_stamina = true;
-        break;
-      case TrueFlasksAPI::FlaskType::Magick: glow_magick = true;
-        break;
-      case TrueFlasksAPI::FlaskType::Other: glow_other = true;
-        break;
-      }
-      actor_data.failed_drink_type.reset();
-    }
+    // Check array for flags
+    if (actor_data.failed_drink_types[0]) { glow_health = true; actor_data.failed_drink_types[0] = false; }
+    if (actor_data.failed_drink_types[1]) { glow_stamina = true; actor_data.failed_drink_types[1] = false; }
+    if (actor_data.failed_drink_types[2]) { glow_magick = true; actor_data.failed_drink_types[2] = false; }
+    if (actor_data.failed_drink_types[3]) { glow_other = true; actor_data.failed_drink_types[3] = false; }
 
     update_flask(api, view, ctx.actor, TrueFlasksAPI::FlaskType::Health, 0, glow_health);
     update_flask(api, view, ctx.actor, TrueFlasksAPI::FlaskType::Stamina, 1, glow_stamina);

@@ -175,7 +175,7 @@ export bool drink_potion(const core::hooks_ctx::on_actor_drink_potion& ctx)
           RE::DebugNotification(settings->notify.c_str());
       }
       // Trigger glow in UI via flag
-      actor_data.failed_drink_type = type;
+      actor_data.failed_drink_types[static_cast<int>(type)] = true;
       logger::info("Flask usage failed (no slots): type {}", static_cast<int>(type));
   }
   
@@ -202,6 +202,38 @@ export void update(const core::hooks_ctx::on_actor_update& ctx)
   d_data.delta_other = calc_delta(flask_type::Other);
   
   actor_data.update(d_data);
+}
+
+export void remove_item(const core::hooks_ctx::on_actor_remove_item& ctx)
+{
+    if (ctx.reason != RE::ITEM_REMOVE_REASON::kRemove) return;
+    if (ctx.move_to_ref || ctx.drop_loc || ctx.rotate) return;
+    if (ctx.count <= 0 || !ctx.item) return;
+
+    const auto potion = ctx.item->As<RE::AlchemyItem>();
+    if (!potion) return;
+
+    const auto config = config::config_manager::get_singleton();
+    
+    // Check for NoRemoveKeyword
+    if (config->main.no_remove_keyword && core::utility::try_form_has_keyword(potion, config->main.no_remove_keyword)) {
+        
+        const auto type_opt = identify_flask_type(potion, config);
+        if (!type_opt.has_value()) return;
+        
+        const auto type = type_opt.value();
+        const auto settings = get_settings(config, type);
+        
+        if (!settings->enable) return;
+        
+        const auto is_player = ctx.actor->IsPlayerRef();
+        if (is_player && !settings->player) return;
+        if (!is_player && !settings->npc) return;
+        
+        // If we reached here, it's a flask that should not be removed
+        ctx.count = 0;
+        logger::info("Prevented removal of flask: {} from actor: {:08X}", potion->GetName(), ctx.actor->GetFormID());
+    }
 }
 
 // API Functions
@@ -351,6 +383,54 @@ export auto api_get_flask_info(RE::AlchemyItem* potion) -> std::pair<int, bool> 
     }
     
     return {static_cast<int>(type), consumes_slot};
+}
+
+export auto api_play_flask_glow(RE::Actor* actor, const flask_type type) -> void {
+    if (!actor) return;
+    auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(actor->GetFormID());
+    actor_data.failed_drink_types[static_cast<int>(type)] = true;
+}
+
+export auto api_get_flask_settings(const flask_type type) -> std::optional<TrueFlasksAPI::FlaskSettings> {
+    const auto config = config::config_manager::get_singleton();
+    const auto settings = get_settings(config, type);
+    
+    if (!settings) return std::nullopt;
+    
+    TrueFlasksAPI::FlaskSettings out;
+    out.enable = settings->enable;
+    out.npc = settings->npc;
+    out.player = settings->player;
+    out.enable_parallel_cooldown = settings->enable_parallel_cooldown;
+    out.anti_spam = settings->anti_spam;
+    out.anti_spam_delay = settings->anti_spam_delay;
+    out.regeneration_mult_base = settings->regeneration_mult_base;
+    out.regeneration_mult_keyword = settings->regeneration_mult_keyword;
+    out.cap_base = settings->cap_base;
+    out.cap_keyword = settings->cap_keyword;
+    out.cooldown_base = settings->cooldown_base;
+    out.cooldown_keyword = settings->cooldown_keyword;
+    
+    // Fill specific fields
+    out.keyword = nullptr;
+    out.exclusive_keyword = nullptr;
+    out.revert_exclusive = false;
+
+    if (type == flask_type::Other) {
+        out.exclusive_keyword = config->flasks_other.exclusive_keyword;
+        out.revert_exclusive = config->flasks_other.revert_exclusive;
+    } else {
+        // For Health, Stamina, Magick, we need to cast back to flask_settings to get the keyword
+        // Since get_settings returns base pointer, we can do a safe cast or just access directly from config
+        switch(type) {
+            case flask_type::Health: out.keyword = config->flasks_health.keyword; break;
+            case flask_type::Stamina: out.keyword = config->flasks_stamina.keyword; break;
+            case flask_type::Magick: out.keyword = config->flasks_magick.keyword; break;
+            default: break;
+        }
+    }
+    
+    return out;
 }
 
 }

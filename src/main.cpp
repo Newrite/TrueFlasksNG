@@ -5,6 +5,7 @@ import TrueFlasks.Events;
 import TrueFlasks.Core.Hooks;
 import TrueFlasks.Core.ActorsCache;
 import TrueFlasks.Config;
+import TrueFlasks.Papyrus;
 
 auto skse_message_handle(SKSE::MessagingInterface::Message* message) -> void
 {
@@ -47,6 +48,12 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse)
 
   SKSE::GetMessagingInterface()->RegisterListener(skse_message_handle);
   ui::skse_menu::register_skse_menu();
+  
+  const auto papyrus_vm = SKSE::GetPapyrusInterface();
+  if (!papyrus_vm || !papyrus_vm->Register(papyrus::Register)) {
+    logger::info("papyrus_vm is null or can't register papyrus functions"sv);
+    return false;
+  }
 
   const auto serialization = SKSE::GetSerializationInterface();
   if (!serialization) {

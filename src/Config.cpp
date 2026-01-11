@@ -44,6 +44,7 @@ namespace config {
     export struct main_settings
     {
         RE::BGSKeyword* no_remove_keyword{ nullptr };
+        bool auto_hide_ui{ false };
     };
 
     export struct prisma_flask_widget_settings
@@ -154,6 +155,7 @@ namespace config {
 
         void populate_ini(mINI::INIStructure& ini) {
              ini["TrueFlasksNG"]["NoRemoveKeyword"] = keyword_to_string(main.no_remove_keyword, "0x800~Mod.esp");
+             ini["TrueFlasksNG"]["AutoHideUI"] = main.auto_hide_ui ? "1" : "0";
              
              auto write_flask = [&](const std::string& section, const flask_settings_base& s) {
                  ini[section]["FlasksEnable"] = s.enable ? "1" : "0";
@@ -250,6 +252,7 @@ namespace config {
             if (ini.has("TrueFlasksNG")) {
                 const auto& sec = ini.get("TrueFlasksNG");
                 if (sec.has("NoRemoveKeyword")) no_remove_kw = sec.get("NoRemoveKeyword");
+                if (sec.has("AutoHideUI")) parse_bool(sec.get("AutoHideUI"), main.auto_hide_ui);
             }
             main.no_remove_keyword = parse_keyword(no_remove_kw);
 

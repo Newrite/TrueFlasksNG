@@ -65,6 +65,12 @@ namespace papyrus
     return {type, has_slot ? 1 : 0};
   }
 
+  void PlayFlaskGlow(RE::StaticFunctionTag*, RE::Actor* actor, int type)
+  {
+    if (!actor) return;
+    api_play_flask_glow(actor, int_to_flask_type(type));
+  }
+
   export bool Register(RE::BSScript::IVirtualMachine* vm)
   {
     vm->RegisterFunction("ModifyCooldown", "TrueFlasksNG", ModifyCooldown);
@@ -74,6 +80,7 @@ namespace papyrus
     vm->RegisterFunction("GetRegenMult", "TrueFlasksNG", GetRegenMult);
     vm->RegisterFunction("GetCooldownPct", "TrueFlasksNG", GetCooldownPct);
     vm->RegisterFunction("GetFlaskInfo", "TrueFlasksNG", GetFlaskInfo);
+    vm->RegisterFunction("PlayFlaskGlow", "TrueFlasksNG", PlayFlaskGlow);
     return true;
   }
 }

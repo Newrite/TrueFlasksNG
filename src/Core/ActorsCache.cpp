@@ -1,6 +1,8 @@
 ﻿module;
 
 #include <optional>
+#include <set>
+#include <map>
 #include "API/TrueFlasksAPI.h"
 
 export module TrueFlasks.Core.ActorsCache;
@@ -38,7 +40,8 @@ export struct cache_data final {
         flask_cooldown flasks_others[FLASK_ARRAY_SIZE];
       
       float anti_spam_durations[4]{0.f};
-      std::optional<TrueFlasksAPI::FlaskType> failed_drink_type;
+      // 0 - Health, 1 - Stamina, 2 - Magick, 3 - Other
+      bool failed_drink_types[4]{false, false, false, false};
         
         std::uint64_t last_tick{GetTickCount64()};
       

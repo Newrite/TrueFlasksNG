@@ -44,6 +44,16 @@ namespace api
     {
       return features::true_flasks::api_get_flask_info(potion);
     }
+
+    void PlayFlaskGlow(RE::Actor* actor, FlaskType type) noexcept override
+    {
+      features::true_flasks::api_play_flask_glow(actor, static_cast<features::true_flasks::flask_type>(type));
+    }
+
+    std::optional<FlaskSettings> GetFlaskSettings(FlaskType type) noexcept override
+    {
+        return features::true_flasks::api_get_flask_settings(static_cast<features::true_flasks::flask_type>(type));
+    }
   };
 
   static TrueFlasksAPI_V1 g_TrueFlasksAPI_V1;

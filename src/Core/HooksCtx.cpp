@@ -15,4 +15,15 @@ namespace core::hooks_ctx
     RE::AlchemyItem* potion;
     RE::ExtraDataList* extra_list;
   };
+
+  export struct on_actor_remove_item final
+  {
+    RE::Actor* actor;
+    RE::TESBoundObject* item;
+    std::int32_t& count;
+    RE::ITEM_REMOVE_REASON reason;
+    RE::TESObjectREFR* move_to_ref;
+    const RE::NiPoint3* drop_loc;
+    const RE::NiPoint3* rotate;
+  };
 }

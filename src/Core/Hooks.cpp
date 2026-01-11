@@ -32,6 +32,7 @@ namespace core::hooks
     static constexpr auto addr_vtable_player_character = RE::PlayerCharacter::VTABLE[0];
     static constexpr auto offset_vtable_update = RELOCATION_OFFSET(0xAD, 0xAD);
     static constexpr auto offset_vtable_drink_potion = RELOCATION_OFFSET(0x10F, 0x10F);
+    static constexpr auto offset_vtable_remove_item = RELOCATION_OFFSET(0x56, 0x56);
 
     static auto on_update(hooks_ctx::on_actor_update& ctx) -> void
     {
@@ -95,10 +96,26 @@ namespace core::hooks
                character, potion, extra_list);
     }
 
+    static auto on_remove_item_character(RE::Character* actor, RE::TESBoundObject* item, std::int32_t count, RE::ITEM_REMOVE_REASON reason, RE::ExtraDataList* extra_list, RE::TESObjectREFR* move_to_ref, const RE::NiPoint3* drop_loc, const RE::NiPoint3* rotate) -> RE::ObjectRefHandle
+    {
+        auto ctx = hooks_ctx::on_actor_remove_item{actor, item, count, reason, move_to_ref, drop_loc, rotate};
+        features::true_flasks::remove_item(ctx);
+        return on_remove_item_character_original(actor, item, count, reason, extra_list, move_to_ref, drop_loc, rotate);
+    }
+
+    static auto on_remove_item_player_character(RE::PlayerCharacter* actor, RE::TESBoundObject* item, std::int32_t count, RE::ITEM_REMOVE_REASON reason, RE::ExtraDataList* extra_list, RE::TESObjectREFR* move_to_ref, const RE::NiPoint3* drop_loc, const RE::NiPoint3* rotate) -> RE::ObjectRefHandle
+    {
+        auto ctx = hooks_ctx::on_actor_remove_item{actor, item, count, reason, move_to_ref, drop_loc, rotate};
+        features::true_flasks::remove_item(ctx);
+        return on_remove_item_player_character_original(actor, item, count, reason, extra_list, move_to_ref, drop_loc, rotate);
+    }
+
     static inline REL::Relocation<decltype(on_update_character)> on_update_character_original;
     static inline REL::Relocation<decltype(on_update_player_character)> on_update_player_character_original;
     static inline REL::Relocation<decltype(on_drink_potion_character)> on_drink_potion_character_original;
     static inline REL::Relocation<decltype(on_drink_potion_player_character)> on_drink_potion_player_character_original;
+    static inline REL::Relocation<decltype(on_remove_item_character)> on_remove_item_character_original;
+    static inline REL::Relocation<decltype(on_remove_item_player_character)> on_remove_item_player_character_original;
 
     static auto install_hook() -> void
     {
@@ -118,6 +135,14 @@ namespace core::hooks
                   offset_vtable_drink_potion,
                   on_drink_potion_player_character,
                   on_drink_potion_player_character_original, "on_drink_potion_player_character");
+      write_vfunc(REL::Relocation<>{addr_vtable_character},
+                  offset_vtable_remove_item,
+                  on_remove_item_character,
+                  on_remove_item_character_original, "on_remove_item_character");
+      write_vfunc(REL::Relocation<>{addr_vtable_player_character},
+                  offset_vtable_remove_item,
+                  on_remove_item_player_character,
+                  on_remove_item_player_character_original, "on_remove_item_player_character");
     }
   };
 
