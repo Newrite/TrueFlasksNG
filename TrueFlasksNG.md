@@ -2,6 +2,13 @@
 
 **TrueFlasksNG** is a modern SKSE64 plugin for Skyrim Special Edition/Anniversary Edition/VR that overhauls the potion system. It introduces a flask mechanic inspired by modern games (like Cyberpunk 2077), where potions have limited charges (slots) that regenerate over time, rather than being consumable items that disappear from your inventory.
 
+[Current download link (google drive)](https://drive.google.com/drive/u/0/folders/1xIUqI47D59vgLwzfco1dpwEENh3YKJM5) soon will be released on nexus.
+
+#### Requirements
+* [Address Library for SKSE Plugins](https://www.nexusmods.com/skyrimspecialedition/mods/32444)
+* [Prisma UI](https://www.prismaui.dev/getting-started/installation/) only if you need widget
+* [SKSE Menu Framework](https://www.nexusmods.com/skyrimspecialedition/mods/120352) only for configure in-game
+
 ---
 
 ## For Users
