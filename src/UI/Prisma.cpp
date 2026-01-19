@@ -220,6 +220,10 @@ namespace ui::prisma
     update_flask(api, view, ctx.actor, TrueFlasksAPI::FlaskType::Stamina, 1, glow_stamina);
     update_flask(api, view, ctx.actor, TrueFlasksAPI::FlaskType::Magick, 2, glow_magick);
     update_flask(api, view, ctx.actor, TrueFlasksAPI::FlaskType::Other, 3, glow_other);
+    
+    if (api->IsHidden(view)) {
+      api->Show(view);
+    }
   }
   
   export void update_enable(const bool enable)
@@ -252,7 +256,7 @@ namespace ui::prisma
 
     auto prisma = core::mods_api_repository::get_prisma_ui();
     auto& view = get_view_ref();
-
+    /*
     if (!prisma) {
       return;
     }
@@ -274,6 +278,37 @@ namespace ui::prisma
 
     if (ctx.menu_name == RE::HUDMenu::MENU_NAME || ctx.menu_name == true_hud) {
       ctx.is_opening ? prisma->Show(view) : prisma->Hide(view);
+    }*/
+    
+    if (auto ui = RE::UI::GetSingleton()) {
+      bool isLoadingMenu = ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME);
+      bool shouldShowWidget = !(
+          ui->IsMenuOpen(RE::InventoryMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::CraftingMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::BarterMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::TweenMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::GiftMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::MagicMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::StatsMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::MessageBoxMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::JournalMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::LockpickingMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::SleepWaitMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::RaceSexMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::MapMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::FaderMenu::MENU_NAME) ||
+          ui->IsMenuOpen(RE::CursorMenu::MENU_NAME)
+          );
+      if (shouldShowWidget && !isLoadingMenu) {
+        prisma->Invoke(view, "Show()");
+        return;
+      }
+      
+      prisma->Invoke(view, "Hide()");
+      
     }
+    
   }
 }

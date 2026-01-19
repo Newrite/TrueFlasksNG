@@ -26,7 +26,7 @@ const flasks = [
 ];
 
 const flaskElements = {};
-let globalSettings = { auto_hide: false };
+let globalSettings = { auto_hide: false, opacity: 1.0 };
 
 function initFlask(item) {
     const obj = document.getElementById(item.id);
@@ -268,6 +268,19 @@ window.updateFlaskData = (args) => {
     }
 };
 
+// === ФУНКЦИИ УПРАВЛЕНИЯ ВИДИМОСТЬЮ (TOP LEVEL) ===
+window.Hide = () => {
+    document.body.style.transition = 'none';
+    document.body.style.opacity = '0';
+};
+
+window.Show = () => {
+    // Принудительный пересчет стилей
+    void document.body.offsetWidth;
+    document.body.style.transition = 'opacity 3s ease';
+    document.body.style.opacity = '1';
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => window.firstInitDom(), 1000);
 });
@@ -280,6 +293,9 @@ const DEBUG_FLASKS = false;
 window.addEventListener('load', function() {
 
     if (!DEBUG_FLASKS) return;
+    
+    window.Hide();
+    window.Show();
 
     const isBrowser = (typeof window !== 'undefined' && (window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
 
