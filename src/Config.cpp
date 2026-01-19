@@ -13,20 +13,20 @@ namespace config
   export struct flask_settings_base
   {
     bool enable{true};
-    bool npc{true};
+    bool npc{false};
     bool player{true};
-    std::string notify{"Я не могу выпить больше зелий."};
-    bool enable_parallel_cooldown{true};
+    std::string notify{"I can't drink any more potions."};
+    bool enable_parallel_cooldown{false};
     bool anti_spam{true};
     float anti_spam_delay{0.1f};
 
     float regeneration_mult_base{100.0f};
     RE::BGSKeyword* regeneration_mult_keyword{nullptr};
 
-    int cap_base{1};
+    int cap_base{2};
     RE::BGSKeyword* cap_keyword{nullptr};
 
-    float cooldown_base{300.0f};
+    float cooldown_base{30.0f};
     RE::BGSKeyword* cooldown_keyword{nullptr};
   };
 
@@ -51,17 +51,17 @@ namespace config
     float x{0.5f};
     float y{0.5f};
     float size{0.5f};
-    float opacity{0.5f};
+    float opacity{1.0f};
   };
 
   export struct prisma_widget_settings
   {
     bool enable{true};
     bool auto_hide_ui{false};
-    float x{0.25f};
-    float y{0.25f};
-    float size{1.0f};
-    float opacity{0.5f};
+    float x{0.10f};
+    float y{0.72f};
+    float size{0.50f};
+    float opacity{1.00f};
     bool anchor_all_elements{true};
 
     prisma_flask_widget_settings health;
@@ -79,6 +79,28 @@ namespace config
     flask_settings flasks_stamina;
     flask_settings flasks_magick;
     prisma_widget_settings prisma_widget;
+
+    config_manager()
+    {
+      // Health Flasks Defaults
+      flasks_health.notify = "I can't drink any more Healing Flasks.";
+      
+      // Stamina Flasks Defaults
+      flasks_stamina.notify = "I can't drink any more Flasks of Vigor.";
+      
+      // Magick Flasks Defaults
+      flasks_magick.notify = "I can't drink any more Flasks of Magick.";
+      
+      // Other Flasks Defaults
+      flasks_other.cap_base = 5;
+      flasks_other.cooldown_base = 180.0f;
+
+      // Prisma Widget Flasks Defaults
+      prisma_widget.health = { 0.51f, 0.28f, 0.50f, 1.00f };
+      prisma_widget.stamina = { 0.04f, 0.00f, 0.50f, 0.99f };
+      prisma_widget.magick = { 0.50f, 0.63f, 0.50f, 1.00f };
+      prisma_widget.other = { 0.50f, 0.50f, 0.50f, 1.00f };
+    }
 
   private:
     std::filesystem::path config_path_;
@@ -209,7 +231,7 @@ namespace config
 
       // PrismaWidget
       ini["PrismaWidget"]["PrismaEnable"] = prisma_widget.enable ? "1" : "0";
-      ini["TrueFlasksNG"]["AutoHideUI"] = prisma_widget.auto_hide_ui ? "1" : "0";
+      ini["PrismaWidget"]["AutoHideUI"] = prisma_widget.auto_hide_ui ? "1" : "0";
       ini["PrismaWidget"]["PrismaPositionX"] = std::format("{:.2f}", prisma_widget.x);
       ini["PrismaWidget"]["PrismaPositionY"] = std::format("{:.2f}", prisma_widget.y);
       ini["PrismaWidget"]["PrismaSize"] = std::format("{:.2f}", prisma_widget.size);

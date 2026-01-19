@@ -25,8 +25,8 @@ set_policy("check.auto_ignore_flags", false)
 
 -- set configs
 set_config("skyrim_vr", false)
-set_config("skyrim_ae", false)
-set_config("skyrim_se", true)
+set_config("skyrim_ae", true)
+set_config("skyrim_se", false)
 set_config("skse_xbyak", true)
 
 rule("prisma_ui_resources")
@@ -44,7 +44,7 @@ target("TrueFlasksNG")
     -- add commonlibsse-ng plugin
     add_rules("commonlibsse-ng.plugin", {
         name = "True Flasks NG",
-        author = "magink && newrite",
+        author = "magink && newrite && zodiak",
         description = "True Flasks NG is a plugin for Skyrim SE that adds new flasks with dark souls mechanics."
     })
 
