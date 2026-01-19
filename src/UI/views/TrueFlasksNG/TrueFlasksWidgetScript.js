@@ -9,18 +9,20 @@
 const VISUAL_BOTTOM = 0.20;
 
 // Уровень горлышка (где жидкость должна остановиться при 100%)
-// ВАЖНО: Именно этим параметром мы лечим проблему "анимация закончилась, а цифра не сменилась".
-// Если при 100% (заряд восстановился) жидкость "улетает" выше горлышка — уменьшайте это число.
-// Если жидкость не доходит — увеличивайте.
 const VISUAL_TOP = 0.65;
+
+// Внутренний отступ из CSS (30px), из-за которого виджет не прижимался к краю
+// (Исправление координат)
+const CSS_INTERNAL_PADDING = 60;
 
 // =========================================================
 
 const flasks = [
-    { id: 'flask-health', counterId: 'flask-counter-health', type: 0, color: '#6a0020' },
-    { id: 'flask-stamina', counterId: 'flask-counter-stamina', type: 1, color: '#2f7d33' },
-    { id: 'flask-magick', counterId: 'flask-counter-magick', type: 2, color: '#2f4ba4' },
-    { id: 'flask-other', counterId: 'flask-counter-other', type: 3, color: '#7b4997' }
+    // Добавлено поле groupId для надежного поиска враппера (Исправление позиционирования)
+    { id: 'flask-health', groupId: 'flask-group-health', counterId: 'flask-counter-health', type: 0, color: '#6a0020' },
+    { id: 'flask-stamina', groupId: 'flask-group-stamina', counterId: 'flask-counter-stamina', type: 1, color: '#2f7d33' },
+    { id: 'flask-magick', groupId: 'flask-group-magick', counterId: 'flask-counter-magick', type: 2, color: '#2f4ba4' },
+    { id: 'flask-other', groupId: 'flask-group-other', counterId: 'flask-counter-other', type: 3, color: '#7b4997' }
 ];
 
 const flaskElements = {};
@@ -64,14 +66,16 @@ function initFlask(item) {
         }
 
         const textElement = document.getElementById(item.counterId);
+        // Находим враппер надежно по ID группы (Исправление позиционирования)
+        const wrapperElement = document.getElementById(item.groupId);
 
         flaskElements[item.type] = {
             object: obj,
-            wrapper: obj.parentElement,
+            wrapper: wrapperElement || obj.parentElement, // Fallback
             svgRoot: svgRoot,
             fillRect: svgDoc.getElementById('flask-fill-rect'),
             text: textElement,
-            lastCount: -1, // Для отслеживания изменений количества
+            lastCount: -1,
             maxSlots: -1
         };
     };
@@ -87,7 +91,7 @@ window.firstInitDom = () => {
     flasks.forEach(initFlask);
 }
 
-// === Настройки позиционирования (без изменений логики) ===
+// === Настройки позиционирования ===
 window.setWidgetSettings = (settingsJson) => {
     try {
         const settings = JSON.parse(settingsJson);
@@ -99,36 +103,58 @@ window.setWidgetSettings = (settingsJson) => {
         if (!settings.enable) return;
 
         if (settings.anchor_all) {
-            container.style.left = (settings.x * window.innerWidth) + 'px';
-            container.style.top = (settings.y * window.innerHeight) + 'px';
+            // === ИСПРАВЛЕНИЕ КООРДИНАТ ===
+            // Вычитаем внутренний отступ CSS, умноженный на масштаб.
+            const offset = CSS_INTERNAL_PADDING * settings.size;
+
+            container.style.left = ((settings.x * window.innerWidth) - offset) + 'px';
+            container.style.top = ((settings.y * window.innerHeight) - offset) + 'px';
             container.style.transform = `scale(${settings.size})`;
             container.style.opacity = settings.opacity;
 
             flasks.forEach(item => {
-                let wrapper = flaskElements[item.type]?.wrapper || document.getElementById(item.id)?.parentElement;
+                // Используем groupId для поиска
+                let wrapper = flaskElements[item.type]?.wrapper || document.getElementById(item.groupId);
+
                 if (wrapper) {
                     const flaskSettings = (item.type === 0) ? settings.health : (item.type === 1) ? settings.stamina : (item.type === 2) ? settings.magick : settings.other;
-                    wrapper.style.transform = ''; wrapper.style.left = ''; wrapper.style.top = '';
-                    // If auto_hide is enabled, opacity is controlled by updateFlaskData
+
+                    // === ИСПРАВЛЕНИЕ ПОЗИЦИОНИРОВАНИЯ (Anchor All) ===
+                    // Агрессивно удаляем стили, чтобы вернуть управление CSS-классам (.flask-top и т.д.)
+                    wrapper.style.removeProperty('left');
+                    wrapper.style.removeProperty('top');
+                    wrapper.style.removeProperty('transform');
+                    wrapper.style.removeProperty('position');
+
+                    // Логика прозрачности с учетом auto_hide
                     if (!settings.auto_hide) {
                         wrapper.style.opacity = (flaskSettings && flaskSettings.enabled === false) ? '0' : '1';
                     } else {
-                         // Initial state for auto-hide: hidden if we don't know status, or visible if we assume full?
-                         // Let's keep it hidden until first update
-                         if (flaskElements[item.type] && flaskElements[item.type].maxSlots === -1) {
-                             wrapper.style.opacity = '0';
-                         }
+                        // Если авто-скрытие включено, но мы еще не знаем статус (инициализация), скрываем
+                        if (flaskElements[item.type] && flaskElements[item.type].maxSlots === -1) {
+                            wrapper.style.opacity = '0';
+                        }
                     }
                 }
             });
         } else {
-            container.style.left = '0px'; container.style.top = '0px'; container.style.transform = 'scale(1)'; container.style.opacity = '1';
+            // Режим раздельного позиционирования
+            container.style.left = '0px';
+            container.style.top = '0px';
+            container.style.transform = 'scale(1)';
+            container.style.opacity = '1';
+
             const apply = (type, s) => {
-                let el = flaskElements[type]?.wrapper || document.getElementById(flasks.find(f=>f.type===type)?.id)?.parentElement;
+                let el = flaskElements[type]?.wrapper || document.getElementById(flasks.find(f=>f.type===type)?.groupId);
                 if (!el) return;
+
                 if (s.enabled === false) { el.style.opacity = '0'; return; }
-                el.style.left = (s.x * window.innerWidth) + 'px'; el.style.top = (s.y * window.innerHeight) + 'px';
-                el.style.transform = `scale(${s.size})`; 
+
+                // Применяем жесткие координаты
+                el.style.left = (s.x * window.innerWidth) + 'px';
+                el.style.top = (s.y * window.innerHeight) + 'px';
+                el.style.transform = `scale(${s.size})`;
+
                 if (!settings.auto_hide) {
                     el.style.opacity = s.opacity;
                 }
@@ -152,20 +178,19 @@ window.updateFlaskData = (args) => {
         try {
             const params = JSON.parse(args);
             flaskType = parseInt(params.typeIndex);
-            fillPercent = parseFloat(params.percent); // Чистое значение от 0.0 до 1.0
+            fillPercent = parseFloat(params.percent);
             count = parseInt(params.count);
             maxSlots = parseInt(params.max_slots);
             shouldGlow = params.forceGlow;
         } catch(e) { return; }
     } else {
-        // Legacy support just in case, though C++ sends JSON now
         const parts = args.split(',');
         if (parts.length < 4) return;
         flaskType = parseInt(parts[0]);
         fillPercent = parseFloat(parts[1]);
         count = parseInt(parts[2]);
         shouldGlow = parts[3] === '1';
-        maxSlots = 1; // Default fallback
+        maxSlots = 1;
     }
 
     const el = flaskElements[flaskType];
@@ -176,15 +201,9 @@ window.updateFlaskData = (args) => {
     // ---------------------------------------------------------
     // 1. Визуализация заполнения (Mapping)
     // ---------------------------------------------------------
-
-    // Мы полностью доверяем fillPercent.
-    // Если fillPercent = 0.5 (пол кулдауна), мы заполняем половину ВИДИМОЙ области.
-    // Формула: Нижняя граница + (Процент * (Верхняя граница - Нижняя граница))
-
     const visualRange = VISUAL_TOP - VISUAL_BOTTOM;
     const mappedScale = VISUAL_BOTTOM + (fillPercent * visualRange);
 
-    // Применяем
     if (el.fillRect) {
         el.fillRect.style.transform = `scaleY(${mappedScale})`;
     }
@@ -199,15 +218,12 @@ window.updateFlaskData = (args) => {
     // ---------------------------------------------------------
     // 3. Свечение
     // ---------------------------------------------------------
-
     let triggerGlow = shouldGlow;
 
-    // Инициализация lastCount, чтобы не светилось при первом запуске
     if (el.lastCount === -1) {
         el.lastCount = count;
     }
 
-    // Если количество увеличилось (0 -> 1, 1 -> 2 и т.д.), запускаем свечение
     if (count > el.lastCount) {
         triggerGlow = true;
     }
@@ -215,7 +231,7 @@ window.updateFlaskData = (args) => {
 
     if (triggerGlow) {
         el.object.classList.remove('glowing');
-        void el.object.offsetWidth; // Перезапуск анимации CSS
+        void el.object.offsetWidth;
         el.object.classList.add('glowing');
     }
 
@@ -224,37 +240,30 @@ window.updateFlaskData = (args) => {
     // ---------------------------------------------------------
     if (el.wrapper) {
         let targetOpacity = '1';
-        
-        // Если включено автоскрытие
+
         if (globalSettings.auto_hide) {
-            // Скрываем, если количество зарядов равно максимальному (полная фласка)
+            // Скрываем, если полная фласка
             if (count >= maxSlots) {
                 targetOpacity = '0';
             } else {
                 targetOpacity = '1';
             }
+            // Apply fade
+            el.wrapper.style.transition = 'opacity 1.5s ease';
+            el.wrapper.style.opacity = targetOpacity;
         } else {
-             // Если автоскрытие выключено, берем прозрачность из настроек (если anchor_all) или индивидуальную
-             // Но здесь мы просто ставим 1, так как прозрачность уже задана в setWidgetSettings
-             // Однако, если элемент был скрыт (opacity 0) из-за инициализации, надо показать
-             if (el.wrapper.style.opacity === '0' && !globalSettings.auto_hide) {
-                 // Check if it was disabled in settings
-                 // This logic is a bit complex because we don't have easy access to individual settings here without reparsing
-                 // Assuming setWidgetSettings handled the base opacity correctly.
-                 // If we are here, updateFlaskData is called, implying the widget is active/updating.
-                 // Let's just ensure it's visible if it was hidden by auto-hide logic previously?
-                 // Actually, setWidgetSettings sets opacity based on config.
-                 // If we override it here to '1', we might break custom opacity.
-                 // Let's only touch opacity if auto_hide is ON.
-                 // BUT: The user requirement says "Works if auto-hide functionality is enabled".
-                 // So if auto_hide is OFF, we do nothing here regarding opacity.
-             }
-        }
-
-        if (globalSettings.auto_hide) {
-             // Apply fade
-             el.wrapper.style.transition = 'opacity 1.5s ease';
-             el.wrapper.style.opacity = targetOpacity;
+            // Если автоскрытие выключено, убеждаемся, что элемент видим (если он не выключен в настройках)
+            // Здесь мы доверяем тому, что setWidgetSettings уже задал правильную opacity
+            // Но если элемент был скрыт анимацией авто-скрытия, а потом настройку выключили "на лету",
+            // нужно вернуть ему видимость.
+            // Простейшая проверка: если стиль opacity 0 или пуст, делаем 1 (сброс)
+            if (el.wrapper.style.opacity === '0' && !el.wrapper.style.transition) {
+                // Оставляем как есть, возможно выключен через конфиг
+            } else if (el.wrapper.style.transition) {
+                // Если осталась транзишн от авто-скрытия, убираем её и восстанавливаем
+                el.wrapper.style.transition = '';
+                el.wrapper.style.opacity = '1';
+            }
         }
     }
 };
@@ -266,73 +275,52 @@ document.addEventListener('DOMContentLoaded', () => {
 // =========================================================
 // DEBUG / BROWSER TESTING MODE
 // =========================================================
-
-// Запускаем только когда все картинки и стили полностью загрузились
-
-const DEBUG_FLASKS = true;
+const DEBUG_FLASKS = false;
 
 window.addEventListener('load', function() {
-    
-    if (!DEBUG_FLASKS) {
-        return;
-    }
 
-    // Проверка: мы в браузере или в игре?
+    if (!DEBUG_FLASKS) return;
+
     const isBrowser = (typeof window !== 'undefined' && (window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
-
-    // Если нужно принудительно включить тест, раскомментируйте строку ниже:
-    // const FORCE_TEST = true; 
 
     if (isBrowser || (typeof FORCE_TEST !== 'undefined' && FORCE_TEST)) {
         console.group("%c TrueFlasks Debug Started ", "background: #222; color: #bada55; font-size: 14px");
         console.log("Environment detected: Browser/Debug");
 
-        // 1. Настраиваем фон
         document.body.style.backgroundColor = "#1a1a1a";
         document.body.style.backgroundImage = "linear-gradient(45deg, #1a1a1a 25%, #2a2a2a 25%, #2a2a2a 50%, #1a1a1a 50%, #1a1a1a 75%, #2a2a2a 75%, #2a2a2a 100%)";
         document.body.style.backgroundSize = "20px 20px";
 
-        // 2. Проверяем доступ к SVG (Самая частая проблема)
+        const mockSettings = {
+            enable: true,
+            x: 0, y: 0, size: 1.0, opacity: 1.0,
+            anchor_all: true,
+            auto_hide: false,
+            health:  { enabled: true, x: 0.3, y: 0.4, size: 0.8, opacity: 1.0 },
+            stamina: { enabled: true, x: 0.4, y: 0.4, size: 0.8, opacity: 1.0 },
+            magick:  { enabled: true, x: 0.5, y: 0.4, size: 0.8, opacity: 1.0 },
+            other:   { enabled: true, x: 0.6, y: 0.4, size: 0.8, opacity: 1.0 }
+        };
+
         setTimeout(() => {
             const testObj = document.getElementById('flask-health');
             if (testObj) {
                 try {
                     const doc = testObj.contentDocument;
                     if (!doc) {
-                        console.error("❌ ОШИБКА ДОСТУПА К SVG: obj.contentDocument is null.");
-                        console.warn("💡 РЕШЕНИЕ: Не открывайте файл напрямую через проводник (file://). Используйте локальный сервер (Live Server в VS Code или python http.server).");
-                        alert("Ошибка: Браузер заблокировал доступ к SVG файлам.\nСкрипт не может управлять заливкой.\n\nЗапустите через локальный сервер (Live Server)!");
+                        console.error("❌ ОШИБКА ДОСТУПА К SVG");
                         return;
                     } else {
-                        console.log("✅ Доступ к SVG есть. Начинаем симуляцию.");
+                        console.log("✅ Доступ к SVG есть.");
                     }
-                } catch (e) {
-                    console.error("Ошибка безопасности:", e);
-                }
-            } else {
-                console.error("❌ Не найден элемент с id='flask-health'. Проверьте HTML.");
+                } catch (e) { console.error("Ошибка безопасности:", e); }
             }
 
-            // 3. Инициализация настроек
-            const mockSettings = {
-                enable: true,
-                x: 0, y: 0, size: 1.0, opacity: 1.0,
-                anchor_all: false,
-                auto_hide: true, // Test auto hide
-                health:  { enabled: true, x: 0.3, y: 0.4, size: 0.8, opacity: 1.0 },
-                stamina: { enabled: true, x: 0.4, y: 0.4, size: 0.8, opacity: 1.0 },
-                magick:  { enabled: true, x: 0.5, y: 0.4, size: 0.8, opacity: 1.0 },
-                other:   { enabled: true, x: 0.6, y: 0.4, size: 0.8, opacity: 1.0 }
-            };
-
-            // Вызываем настройку
             if (window.setWidgetSettings) {
                 window.setWidgetSettings(JSON.stringify(mockSettings));
-                // Принудительно инициализируем DOM, если еще не
                 window.firstInitDom();
             }
 
-            // 4. Цикл анимации
             let time = 0;
             let healthVal = 0.0;
             let magicVal = 1.0;
@@ -341,51 +329,34 @@ window.addEventListener('load', function() {
 
             setInterval(() => {
                 time += 16;
-
-                // --- HEALTH (Красная): Медленно заполняется ---
                 healthVal += 0.005;
-                if (healthVal > 1.3) healthVal = 0.0; // Сброс
+                if (healthVal > 1.3) healthVal = 0.0;
 
-                // ВАЖНО: Тестируем логику count
-                // Пока меньше 1.0 - count 0. Как стало 1.0 - count 1.
                 let hPercent = Math.min(healthVal, 1.0);
                 let hCount = healthVal >= 1.0 ? 1 : 0;
 
                 window.updateFlaskData(JSON.stringify({
-                    typeIndex: 0,
-                    percent: hPercent,
-                    count: hCount,
-                    max_slots: 1,
-                    forceGlow: false
+                    typeIndex: 0, percent: hPercent, count: hCount, max_slots: 1, forceGlow: false
                 }));
 
-                // --- MAGICK (Синяя): Использование и быстрый реген ---
                 if (!magicCooldown && Math.random() < 0.01 && magicCount > 0) {
-                    magicCount--;
-                    magicCooldown = true;
-                    magicVal = 0.0;
-                    console.log("🧪 Magick used! Count:", magicCount);
+                    magicCount--; magicCooldown = true; magicVal = 0.0;
                 }
                 if (magicCooldown) {
                     magicVal += 0.01;
-                    if (magicVal >= 1.0) {
-                        magicVal = 1.0;
-                        magicCount++;
-                        magicCooldown = false;
-                        console.log("✨ Magick restored! Count:", magicCount);
-                    }
+                    if (magicVal >= 1.0) { magicVal = 1.0; magicCount++; magicCooldown = false; }
                 }
                 window.updateFlaskData(JSON.stringify({
-                    typeIndex: 2,
-                    percent: magicVal,
-                    count: magicCount,
-                    max_slots: 3,
-                    forceGlow: false
+                    typeIndex: 2, percent: magicVal, count: magicCount, max_slots: 3, forceGlow: false
                 }));
-
             }, 16);
-
             console.groupEnd();
-        }, 500); // Небольшая задержка перед стартом
+        }, 500);
+
+        // Тест переключения режимов
+        setTimeout(() => {window.setWidgetSettings(JSON.stringify({...mockSettings, enable: false}))}, 2500);
+        setTimeout(() => {window.setWidgetSettings(JSON.stringify({...mockSettings, anchor_all: false}))}, 3500); // Тест раздельного
+        setTimeout(() => {window.setWidgetSettings(JSON.stringify({...mockSettings, anchor_all: true}))}, 5500); // Возврат к общему (проверка очистки стилей)
+        setTimeout(() => {window.setWidgetSettings(JSON.stringify({...mockSettings, enable: true}))}, 4500);
     }
 });

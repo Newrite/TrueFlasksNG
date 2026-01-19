@@ -50,7 +50,7 @@ namespace core::hooks
 
       return on_update_character_original(character, delta);
     }
-
+  
     static auto on_update_player_character(RE::PlayerCharacter* character, const float delta) -> void
     {
       last_player_delta = delta;
@@ -58,10 +58,17 @@ namespace core::hooks
       if (!character || !delta) {
         return on_update_player_character_original(character, delta);
       }
-
+      
       auto ctx = hooks_ctx::on_actor_update{character, last_player_delta};
       on_update(ctx);
-      ui::prisma::update(ctx);
+      
+      // Push all flask data, but only every 0.1 s
+      static float delta_counter = 0.f;
+      delta_counter += delta;
+      if (delta_counter >= 0.1f) {
+        delta_counter = 0.f;
+        ui::prisma::update(ctx);
+      }
 
       return on_update_player_character_original(character, delta);
     }
@@ -95,20 +102,40 @@ namespace core::hooks
       return on_drink_potion(character, potion, extra_list) && on_drink_potion_player_character_original(
                character, potion, extra_list);
     }
+  
+  static auto on_remove_item_character(RE::Character* actor, RE::ObjectRefHandle* ret_handle, RE::TESBoundObject* item, std::int32_t count, RE::ITEM_REMOVE_REASON reason, RE::ExtraDataList* extra_list, RE::TESObjectREFR* move_to_ref, const RE::NiPoint3* drop_loc, const RE::NiPoint3* rotate) -> RE::ObjectRefHandle*
+  {
+      auto ctx = hooks_ctx::on_actor_remove_item{
+        .actor = actor, 
+        .item = item, 
+        .count = count,
+        .reason = reason, 
+        .move_to_ref = move_to_ref, 
+        .drop_loc = drop_loc, 
+        .rotate = rotate
+      };
+      
+      features::true_flasks::remove_item(ctx);
 
-    static auto on_remove_item_character(RE::Character* actor, RE::TESBoundObject* item, std::int32_t count, RE::ITEM_REMOVE_REASON reason, RE::ExtraDataList* extra_list, RE::TESObjectREFR* move_to_ref, const RE::NiPoint3* drop_loc, const RE::NiPoint3* rotate) -> RE::ObjectRefHandle
-    {
-        auto ctx = hooks_ctx::on_actor_remove_item{actor, item, count, reason, move_to_ref, drop_loc, rotate};
-        features::true_flasks::remove_item(ctx);
-        return on_remove_item_character_original(actor, item, count, reason, extra_list, move_to_ref, drop_loc, rotate);
-    }
+      return on_remove_item_character_original(actor, ret_handle, item, count, reason, extra_list, move_to_ref, drop_loc, rotate);
+  }
 
-    static auto on_remove_item_player_character(RE::PlayerCharacter* actor, RE::TESBoundObject* item, std::int32_t count, RE::ITEM_REMOVE_REASON reason, RE::ExtraDataList* extra_list, RE::TESObjectREFR* move_to_ref, const RE::NiPoint3* drop_loc, const RE::NiPoint3* rotate) -> RE::ObjectRefHandle
-    {
-        auto ctx = hooks_ctx::on_actor_remove_item{actor, item, count, reason, move_to_ref, drop_loc, rotate};
-        features::true_flasks::remove_item(ctx);
-        return on_remove_item_player_character_original(actor, item, count, reason, extra_list, move_to_ref, drop_loc, rotate);
-    }
+  static auto on_remove_item_player_character(RE::PlayerCharacter* actor, RE::ObjectRefHandle* ret_handle, RE::TESBoundObject* item, std::int32_t count, RE::ITEM_REMOVE_REASON reason, RE::ExtraDataList* extra_list, RE::TESObjectREFR* move_to_ref, const RE::NiPoint3* drop_loc, const RE::NiPoint3* rotate) -> RE::ObjectRefHandle*
+  {
+      auto ctx = hooks_ctx::on_actor_remove_item{
+        .actor = actor, 
+        .item = item, 
+        .count = count, 
+        .reason = reason, 
+        .move_to_ref = move_to_ref, 
+        .drop_loc = drop_loc, 
+        .rotate = rotate
+      };
+
+      features::true_flasks::remove_item(ctx);
+
+      return on_remove_item_player_character_original(actor, ret_handle, item, ctx.count, reason, extra_list, move_to_ref, drop_loc, rotate);
+  }
 
     static inline REL::Relocation<decltype(on_update_character)> on_update_character_original;
     static inline REL::Relocation<decltype(on_update_player_character)> on_update_player_character_original;

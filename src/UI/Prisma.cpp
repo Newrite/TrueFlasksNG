@@ -47,6 +47,9 @@ namespace ui::prisma
       int max_slots;
       bool forceGlow;
   };
+  
+  bool view_init = false;
+  bool first_init = true;
 
   auto get_view_ref() -> PrismaView&
   {
@@ -70,7 +73,7 @@ namespace ui::prisma
     settings.size = cfg.size;
     settings.opacity = cfg.opacity;
     settings.anchor_all = cfg.anchor_all_elements;
-    settings.auto_hide = config->main.auto_hide_ui;
+    settings.auto_hide = config->prisma_widget.auto_hide_ui;
 
     auto fill_flask_settings = [&](flask_widget_settings& out, const config::prisma_flask_widget_settings& in, const config::flask_settings_base& base) {
         out.x = in.x;
@@ -92,6 +95,10 @@ namespace ui::prisma
     }
 
     if (init) {
+      if (first_init) {
+        first_init = false;
+        api->Hide(view);
+      }
       api->InteropCall(view, "setWidgetSettingsInit", json.c_str());
       return;
     }
@@ -106,6 +113,7 @@ namespace ui::prisma
     auto api = core::mods_api_repository::get_prisma_ui();
     if (api) {
       send_settings(true);
+      view_init = true;
     }
   }
 
@@ -121,15 +129,9 @@ namespace ui::prisma
 
     auto& view = get_view_ref();
 
-
-    if (api->IsValid(view)) {
-      api->Destroy(view);
-    }
-
     view = api->CreateView(view_path, on_dom_ready);
 
     if (view) {
-      api->Hide(view);
       logger::info("TrueFlasksNG view created successfully.");
     }
     else {
@@ -160,11 +162,11 @@ namespace ui::prisma
     // 2. Изменился процент заполнения (с порогом для оптимизации)
     // 3. Изменилось количество зарядов (КРИТИЧНО для цифры и финального свечения)
     // 4. Изменилось максимальное количество зарядов (для автоскрытия)
-    bool pct_changed = std::abs(pct - last_states[type_idx].fill_percent) > 0.005f; // Чуть увеличил порог, 0.001 слишком часто
-    bool count_changed = count != last_states[type_idx].count;
-    bool max_slots_changed = max_slots != last_states[type_idx].max_slots;
-
-    if (force_glow || pct_changed || count_changed || max_slots_changed) {
+    // bool pct_changed = std::abs(pct - last_states[type_idx].fill_percent) > 0.005f; // Чуть увеличил порог, 0.001 слишком часто
+    // bool count_changed = count != last_states[type_idx].count;
+    // bool max_slots_changed = max_slots != last_states[type_idx].max_slots;
+    
+    // if (force_glow || pct_changed || count_changed || max_slots_changed) {
       
       last_states[type_idx].fill_percent = pct;
       last_states[type_idx].count = count;
@@ -181,16 +183,25 @@ namespace ui::prisma
       
       // Используем InteropCall для максимальной скорости обновления
       api->InteropCall(view, "updateFlaskData", json.c_str());
-    }
+    // }
   }
 
   export void update(const core::hooks_ctx::on_actor_update& ctx)
   {
+    
+    if (!config::config_manager::get_singleton()->prisma_widget.enable || !view_init) {
+      return;
+    }
+    
     if (!ctx.actor || !ctx.actor->IsPlayerRef()) return;
 
     auto api = core::mods_api_repository::get_prisma_ui();
     auto& view = get_view_ref();
-    if (!api || !view) return;
+    if (!api) return;
+    
+    if (!api->IsValid(view)) {
+      return;
+    }
 
     auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(ctx.actor->GetFormID());
 
@@ -209,6 +220,26 @@ namespace ui::prisma
     update_flask(api, view, ctx.actor, TrueFlasksAPI::FlaskType::Stamina, 1, glow_stamina);
     update_flask(api, view, ctx.actor, TrueFlasksAPI::FlaskType::Magick, 2, glow_magick);
     update_flask(api, view, ctx.actor, TrueFlasksAPI::FlaskType::Other, 3, glow_other);
+  }
+  
+  export void update_enable(const bool enable)
+  {
+    auto api = core::mods_api_repository::get_prisma_ui();
+    auto& view = get_view_ref();
+    
+    if (!api) {
+      return;
+    }
+    
+    if (!enable) {
+      view_init = false;
+      api->Destroy(view);
+      view = 0;
+      return;
+    }
+    
+    initialize();
+
   }
 
   export void on_menu_event(const events::events_ctx::process_event_menu_ctx& ctx)

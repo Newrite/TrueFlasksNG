@@ -18,7 +18,7 @@ namespace core::hooks_ctx
 
   export struct on_actor_remove_item final
   {
-    RE::Actor* actor;
+    RE::Character* actor;
     RE::TESBoundObject* item;
     std::int32_t& count;
     RE::ITEM_REMOVE_REASON reason;

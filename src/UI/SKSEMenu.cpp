@@ -117,9 +117,10 @@ namespace ui::skse_menu
   {
     auto config = config::config_manager::get_singleton();
     bool changed = false;
+    auto last_enable_value = config->prisma_widget.enable;
 
     if (ImGui::Checkbox("Enable Prisma Widget", &config->prisma_widget.enable)) changed = true;
-    if (ImGui::Checkbox("Auto Hide UI", &config->main.auto_hide_ui)) changed = true;
+    if (ImGui::Checkbox("Auto Hide UI", &config->prisma_widget.auto_hide_ui)) changed = true;
 
     if (config->prisma_widget.enable) {
       if (ImGui::DragFloat("Global X", &config->prisma_widget.x, 0.001f, -1.00f, 1.0f, "%.3f")) changed = true;
@@ -138,6 +139,9 @@ namespace ui::skse_menu
 
     if (changed) {
       config->save();
+      if (last_enable_value != config->prisma_widget.enable) {
+        prisma::update_enable(config->prisma_widget.enable);
+      }
       prisma::send_settings();
     }
   }

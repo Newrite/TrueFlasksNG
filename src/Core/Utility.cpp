@@ -233,8 +233,13 @@ namespace core::utility
 
   using _GetFormEditorID = const char* (*)(std::uint32_t);
 
-  export auto get_editor_id(const RE::TESForm* a_form) -> std::string
+  export auto get_editor_id(const RE::TESForm* a_form) -> const char*
   {
+    
+    if (!a_form) {
+      return "NullEDID";
+    }
+    
     switch (a_form->GetFormType()) {
     case RE::FormType::Keyword:
     case RE::FormType::LocationRefType:
@@ -269,23 +274,38 @@ namespace core::utility
       if (func) {
         return func(a_form->formID);
       }
-      return {};
+      return "";
     }
     }
   }
+  
 
   export auto form_info(const RE::TESForm* form) -> std::string
   {
     if (!form) {
       return "NULL_FORM";
     }
+    
+    const char* fileName = "NullFile";
+    if (const auto file = form->GetFile()) {
+      fileName = file->fileName;
+    }
+    
+    const char* editorId = get_editor_id(form);
+    if (!editorId) editorId = "NoEditorID"; 
+    
+    const char* formName = form->GetName();
+    if (!formName) formName = "NoName";
+
+    const char* objectTypeName = form->GetObjectTypeName();
+    if (!objectTypeName) objectTypeName = "NoObjectTypeName";
 
     return std::format("{:#x}~{}|{} ({}-{})",
                        form->formID,
-                       form->GetFile()->fileName,
-                       get_editor_id(form),
-                       form->GetName(),
-                       form->GetObjectTypeName());
+                       fileName,
+                       editorId,
+                       formName,
+                       objectTypeName);
   }
 
   export auto get_form_id_hex_as_string(const RE::TESForm* form, const bool is_local_id) -> std::string
@@ -360,6 +380,15 @@ namespace core::utility
     }
 
     return result;
+  }
+  
+  export auto is_player(const RE::Actor* form) -> bool
+  {
+    if (!form) {
+      return true;
+    }
+
+    return form->IsPlayerRef() || form->IsPlayer();
   }
 
   export auto get_magnitude_sum_of_active_effects(const std::vector<RE::ActiveEffect*>* active_effects,
