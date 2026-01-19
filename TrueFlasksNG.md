@@ -42,11 +42,13 @@ You can customize the behavior of each flask type independently.
 
 #### To accumulate values from active effects (with relative keyword) for modifying Regeneration Speed, Capacity (Slots), or Cooldown Duration, the effect must have the Recovery flag enabled. Whether the value is increased or decreased is determined by the Detrimental flag.
 
-#### UI Settings (PrismaWidget)
+#### UI Settings for PrismaWidget
 *   **Enable**: Toggle the HUD widget.
 *   **Auto Hide**: Automatically hides the widget when all flasks are full.
 *   **Position & Scale**: Customize the position, size, and opacity of the entire widget or individual flask elements.
 *   **Anchor All**: Lock individual elements to the global widget position or move them freely.
+
+#### Prisma Widget required [Prisma Framework](https://www.prismaui.dev/getting-started/installation/) (prisma widget is optional)
 
 ---
 
