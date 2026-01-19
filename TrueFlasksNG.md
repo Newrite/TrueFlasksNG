@@ -9,6 +9,8 @@
 * [Prisma UI](https://www.prismaui.dev/getting-started/installation/) only if you need widget
 * [SKSE Menu Framework](https://www.nexusmods.com/skyrimspecialedition/mods/120352) only for configure in-game
 
+#### This plugin was created with the assistance of Gemini 3, if that bothers you, don't use the mod.
+
 ---
 
 ## For Users
