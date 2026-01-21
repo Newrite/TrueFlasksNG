@@ -119,17 +119,12 @@ You can request the `TrueFlasksIVTrueFlasks1` interface via the SKSE messaging s
 ```cpp
 // In your SKSE plugin load or message handler:
 void OnMessage(SKSE::MessagingInterface::Message* message) {
-    if (message->type == SKSE::MessagingInterface::kPostLoad) {
-        // Request the interface from TrueFlasksNG
-        // Note: Check source for exact Message ID (e.g. 0x10)
-        auto* trueFlasks = (IVTrueFlasks1*)SKSE::GetMessagingInterface()->GetEventDispatcher(
-            SKSE::MessagingInterface::kType_GameLoaded 
-        )->RequestPluginInterface("TrueFlasksNG");
-
-        if (trueFlasks) {
-            // Interface obtained successfully
-        }
-    }
+  if (message->type == SKSE::MessagingInterface::kDataLoaded) {
+    
+    auto true_flasks = static_cast<TrueFlasksAPI::IVTrueFlasks1*>(TrueFlasksAPI::RequestPluginAPI(TrueFlasksAPI::InterfaceVersion::V1));
+    true_flasks ? logger::info("Success request TrueFlasks") : logger::info("Failed request TrueFlasks");
+    
+  }
 }
 ```
 
