@@ -1,19 +1,22 @@
 module;
 
-#define NOMINMAX
-#include <algorithm>
-#include <optional>
-#include <utility>
 #include "API/TrueFlasksAPI.h"
-#undef min
-#undef max
 
 export module TrueFlasks.Features.TrueFlasks;
+
+#ifdef PlaySound
+#undef PlaySound
+#endif
+
+#define NOMINMAX
+#undef min
+#undef max
 
 import TrueFlasks.Core.HooksCtx;
 import TrueFlasks.Config;
 import TrueFlasks.Core.ActorsCache;
 import TrueFlasks.Core.Utility;
+import TrueFlasks.API.ModAPI;
 
 namespace features::true_flasks
 {
@@ -190,6 +193,9 @@ namespace features::true_flasks
       if (!settings->notify.empty()) {
         RE::DebugNotification(settings->notify.c_str());
       }
+      if (!settings->fail_audio && !settings->fail_audio_edid.empty()) {
+        RE::PlaySound(settings->fail_audio_edid.c_str());
+      }
       // Trigger glow in UI via flag
       actor_data.failed_drink_types[static_cast<int>(type)] = true;
       logger::info("Flask usage failed (no slots): type {}", static_cast<int>(type));
@@ -224,6 +230,27 @@ namespace features::true_flasks
 
 
     actor_data.update(d_data);
+  }
+  
+  export void update_ui(const core::hooks_ctx::on_actor_update& ctx)
+  {
+    auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(ctx.actor->GetFormID());
+    
+    const auto flask_glow_callbacks = api::mod_api::get_play_flasks_glow_callbacks();
+    
+    for (int i : std::views::iota(0, 4)) {
+      
+      if (actor_data.failed_drink_types[i]) {
+        
+        const auto type = static_cast<TrueFlasksAPI::FlaskType>(i);
+        for (const auto& flask_glow_call : *flask_glow_callbacks | std::views::values) {
+          flask_glow_call(type);
+        }
+        
+        actor_data.failed_drink_types[i] = false;
+      }
+    }
+    
   }
 
   export void remove_item(core::hooks_ctx::on_actor_remove_item& ctx)

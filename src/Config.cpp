@@ -28,6 +28,9 @@ namespace config
 
     float cooldown_base{30.0f};
     RE::BGSKeyword* cooldown_keyword{nullptr};
+    
+    bool fail_audio{false};
+    std::string fail_audio_edid{""};
   };
 
   export struct flask_settings : flask_settings_base
@@ -94,6 +97,7 @@ namespace config
       // Other Flasks Defaults
       flasks_other.cap_base = 5;
       flasks_other.cooldown_base = 180.0f;
+      flasks_other.anti_spam = false;
 
       // Prisma Widget Flasks Defaults
       prisma_widget.health = { 0.51f, 0.28f, 0.50f, 1.00f };
@@ -184,6 +188,9 @@ namespace config
           parse_float(collection.get("FlasksCooldownBase"),
                       settings.cooldown_base);
         if (collection.has("FlasksCooldownKeyword")) cd_kw = collection.get("FlasksCooldownKeyword");
+        
+        if (collection.has("FlasksFailAudio")) parse_bool(collection.get("FlasksFailAudio"), settings.fail_audio);
+        if (collection.has("FlasksAntiSpamDelay")) settings.fail_audio_edid = collection.get("FlasksFailAudioEditorID");
       }
       else {
         logger::info("Section [{}] not found, using defaults", section);
@@ -213,6 +220,8 @@ namespace config
         ini[section]["FlasksCapKeyword"] = keyword_to_string(s.cap_keyword, "0x800~Mod.esp");
         ini[section]["FlasksCooldownBase"] = std::format("{:.1f}", s.cooldown_base);
         ini[section]["FlasksCooldownKeyword"] = keyword_to_string(s.cooldown_keyword, "0x800~Mod.esp");
+        ini[section]["FlasksFailAudio"] = s.fail_audio ? "1" : "0";
+        ini[section]["FlasksFailAudioEditorID"] = s.fail_audio_edid;
       };
 
       write_flask("FlasksOther", flasks_other);

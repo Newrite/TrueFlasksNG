@@ -39,13 +39,24 @@ namespace ui::skse_menu
       RenderTooltip("Enable this flask type for NPCs.");
 
       // Notify string handling
-      char buffer[256];
-      strncpy_s(buffer, settings.notify.c_str(), sizeof(buffer) - 1);
-      if (ImGui::InputText("Notification", buffer, sizeof(buffer))) {
-        settings.notify = buffer;
+      char buffer_notify[512];
+      strncpy_s(buffer_notify, settings.notify.c_str(), sizeof(buffer_notify) - 1);
+      if (ImGui::InputText("Notification", buffer_notify, sizeof(buffer_notify))) {
+        settings.notify = buffer_notify;
         changed = true;
       }
       RenderTooltip("Notification message shown to the player when they cannot drink more of this flask.");
+      
+      if (ImGui::Checkbox("Enable Fail Audio", &settings.fail_audio)) changed = true;
+      RenderTooltip("If enable, play audio feedback when a flask fails to activate.");
+      
+      char buffer_audio_edid[512];
+      strncpy_s(buffer_audio_edid, settings.fail_audio_edid.c_str(), sizeof(buffer_audio_edid) - 1);
+      if (ImGui::InputText("Fail Audio EDID", buffer_audio_edid, sizeof(buffer_audio_edid))) {
+        settings.fail_audio_edid = buffer_audio_edid;
+        changed = true;
+      }
+      RenderTooltip("Editor ID of the audio feedback to play when a flask fails to activate.");
 
       if (ImGui::Checkbox("Parallel Cooldown", &settings.enable_parallel_cooldown)) changed = true;
       RenderTooltip("If true, all slots cool down simultaneously. If false, they cool down one by one.");

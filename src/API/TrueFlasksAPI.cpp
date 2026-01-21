@@ -1,6 +1,7 @@
 ﻿#include "API/TrueFlasksAPI.h"
 
 import TrueFlasks.Features.TrueFlasks;
+import TrueFlasks.API.ModAPI;
 
 namespace api
 {
@@ -54,8 +55,28 @@ namespace api
     {
         return features::true_flasks::api_get_flask_settings(static_cast<features::true_flasks::flask_type>(type));
     }
-  };
 
+    APIResult AddPlayFlaskGlowCallback(SKSE::PluginHandle plugin_handle,
+      PlayFlaskGlowCallback glow_callback) noexcept override
+    {
+      auto callbacks = mod_api::get_play_flasks_glow_callbacks();
+      if (callbacks->contains(plugin_handle)) {
+        return APIResult::AlreadyRegistered;
+      }
+      callbacks->emplace(plugin_handle, glow_callback);
+      return APIResult::OK;
+    }
+    APIResult RemovePlayFlaskGlowCallback(SKSE::PluginHandle plugin_handle) noexcept override
+    {
+      auto callbacks = mod_api::get_play_flasks_glow_callbacks();
+      if (!callbacks->contains(plugin_handle)) {
+        return APIResult::NotRegistered;
+      }
+      callbacks->erase(plugin_handle);
+      return APIResult::OK;
+    }
+  };
+  
   static TrueFlasksAPI_V1 g_TrueFlasksAPI_V1;
 
   extern "C" __declspec(dllexport) void* RequestPluginAPI(const InterfaceVersion interfaceVersion)

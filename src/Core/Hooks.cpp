@@ -60,7 +60,6 @@ namespace core::hooks
       }
       
       auto ctx = hooks_ctx::on_actor_update{character, last_player_delta};
-      on_update(ctx);
       
       // Push all flask data, but only every 0.1 s
       static float delta_counter = 0.f;
@@ -68,8 +67,11 @@ namespace core::hooks
       if (delta_counter >= 0.1f) {
         delta_counter = 0.f;
         ui::prisma::update(ctx);
+        features::true_flasks::update_ui(ctx);
       }
 
+      on_update(ctx);
+      
       return on_update_player_character_original(character, delta);
     }
 
