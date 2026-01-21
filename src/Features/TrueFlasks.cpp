@@ -110,7 +110,7 @@ namespace features::true_flasks
     if (max_slots > core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE)
       max_slots = core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE;
 
-    for (int i = 0; i < max_slots; ++i) {
+    for (const int i : std::views::iota(0, max_slots)) {
       if (flasks[i].cooldown_current <= 0.f) {
         flasks[i].cooldown_start = cooldown_duration;
         flasks[i].cooldown_current = cooldown_duration;
@@ -286,7 +286,7 @@ namespace features::true_flasks
     int available = 0;
     const int limit = (std::min)(max_slots, core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE);
 
-    for (int i = 0; i < limit; ++i) {
+    for (const int i : std::views::iota(0, limit)) {
       if (flasks[i].cooldown_current <= 0.f) {
         available++;
       }
@@ -307,7 +307,7 @@ namespace features::true_flasks
     float min_cd = -1.f;
     const int limit = (std::min)(max_slots, core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE);
 
-    for (int i = 0; i < limit; ++i) {
+    for (const int i : std::views::iota(0, limit)) {
       if (flasks[i].cooldown_current > 0.f) {
         if (min_cd < 0.f || flasks[i].cooldown_current < min_cd) {
           min_cd = flasks[i].cooldown_current;
@@ -331,7 +331,7 @@ namespace features::true_flasks
     const int limit = (std::min)(max_slots, core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE);
 
     if (all_slots) {
-      for (int i = 0; i < limit; ++i) {
+      for (const int i : std::views::iota(0, limit)) {
         if (flasks[i].cooldown_current > 0.f) {
           flasks[i].cooldown_current = (std::max)(0.f, flasks[i].cooldown_current + amount);
         }
@@ -342,7 +342,7 @@ namespace features::true_flasks
       int nearest_idx = -1;
       float min_cd = -1.f;
 
-      for (int i = 0; i < limit; ++i) {
+      for (const int i : std::views::iota(0, limit)) {
         if (flasks[i].cooldown_current > 0.f) {
           if (min_cd < 0.f || flasks[i].cooldown_current < min_cd) {
             min_cd = flasks[i].cooldown_current;
@@ -380,7 +380,7 @@ namespace features::true_flasks
     float min_cd = -1.f;
     const int limit = (std::min)(max_slots, core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE);
 
-    for (int i = 0; i < limit; ++i) {
+    for (const int i : std::views::iota(0, limit)) {
       if (flasks[i].cooldown_current > 0.f) {
         if (min_cd < 0.f || flasks[i].cooldown_current < min_cd) {
           min_cd = flasks[i].cooldown_current;

@@ -53,14 +53,14 @@ namespace core::actors_cache
       void update(const delta_data& delta_data)
       {
         last_tick = GetTickCount64();
-        for (int i = 0; i < 4; ++i) {
+        for (const int i : std::views::iota(0, 4)) {
           if (anti_spam_durations[i] > 0.f) {
             anti_spam_durations[i] -= delta_data.delta;
           }
         }
 
-        auto update_flasks = [](flask_cooldown* flasks, float delta, bool parallel) {
-          for (int i = 0; i < FLASK_ARRAY_SIZE; ++i) {
+        auto update_flasks = [](flask_cooldown* flasks, const float delta, const bool parallel) {
+          for (const int i : std::views::iota(0, FLASK_ARRAY_SIZE)) {
             if (flasks[i].cooldown_current > 0.f) {
               flasks[i].cooldown_current -= delta;
               if (!parallel) {
@@ -89,28 +89,13 @@ namespace core::actors_cache
       return (GetTickCount64() - data.last_tick) >= GARBAGE_TIME;
     }
 
-    auto clean_cache_map(const std::vector<RE::FormID>* keys_to_delete) -> void
-    {
-      if (!keys_to_delete || keys_to_delete->empty()) {
-        return;
-      }
-      for (auto key : *keys_to_delete) {
-        actors_cache_.erase(key);
-      }
-    }
-
-    // Нежелательно одновременно итерироваться по коллекции и мутировать ее при этом (в данном случае - удалять значения из мапы при проходе по мапе)
-    // В некоторых случаях это может приводить к ошибкам 
     auto garbage_collector() -> void
     {
-      auto keys_to_delete = std::vector<RE::FormID>{};
-      for (const auto& [form_id, data] : actors_cache_) {
-        if (is_garbage(data)) {
-          keys_to_delete.push_back(form_id);
-        }
-      }
-
-      clean_cache_map(std::addressof(keys_to_delete));
+      std::erase_if(actors_cache_, [](auto& pair) -> bool {
+        const auto& [_, data] = pair;
+        return is_garbage(data);
+      });
+      
     }
 
     auto load(const SKSE::SerializationInterface* a_interface) -> void

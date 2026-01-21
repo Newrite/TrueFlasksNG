@@ -188,17 +188,21 @@ namespace core::utility
     const std::string& line) -> std::expected<resolved_form_id, resolve_form_id_error>
   {
     constexpr auto FORM_ID_DELIMITER = '~';
+    
     const auto split_line = strings::split(line, FORM_ID_DELIMITER);
     if (split_line.empty()) {
       return std::unexpected(resolve_form_id_error::parts_after_split_is_empty);
     }
+    
     if (split_line.size() != 2) {
       return std::unexpected(resolve_form_id_error::parts_after_split_not_equal_two);
     }
+    
     const auto form_id = hex_to_int64(split_line.at(0));
     if (!form_id.has_value()) {
       return std::unexpected(resolve_form_id_error::cant_parse_to_formId_from_string);
     }
+    
     return resolved_form_id{static_cast<RE::FormID>(form_id.value()), split_line.at(1)};
   }
 
@@ -207,9 +211,11 @@ namespace core::utility
     const std::string& mod_name_str) -> std::expected<resolved_form_id, resolve_form_id_error>
   {
     const auto form_id = hex_to_int64(form_id_str);
+    
     if (!form_id.has_value()) {
       return std::unexpected(resolve_form_id_error::cant_parse_to_formId_from_string);
     }
+    
     return resolved_form_id{static_cast<RE::FormID>(form_id.value()), mod_name_str};
   }
 
@@ -221,14 +227,9 @@ namespace core::utility
 
   export auto vector_int_to_vector_av(const std::vector<int>& vector_int) -> std::vector<RE::ActorValue>
   {
-    std::vector<RE::ActorValue> result;
-    result.reserve(vector_int.size());
-
-    for (const auto value : vector_int) {
-      result.push_back(static_cast<RE::ActorValue>(value));
-    }
-
-    return result;
+    return vector_int 
+    | std::views::transform([](int value) {return static_cast<RE::ActorValue>(value);}) 
+    | std::ranges::to<std::vector<RE::ActorValue>>();
   }
 
   using _GetFormEditorID = const char* (*)(std::uint32_t);
@@ -403,11 +404,13 @@ namespace core::utility
 
     for (const auto active_effect : *active_effects) {
       if (active_effect && active_effect->effect && active_effect->effect->baseEffect) {
+        
         const auto is_effect_active = !active_effect->flags.any(RE::ActiveEffect::Flag::kInactive);
         const auto is_detrimental = active_effect->effect->baseEffect->data.flags.any(
           RE::EffectSetting::EffectSettingData::Flag::kDetrimental);
         const auto is_recover = active_effect->effect->baseEffect->data.flags.any(
           RE::EffectSetting::EffectSettingData::Flag::kRecover);
+        
         const auto magnitude = active_effect->GetMagnitude();
 
         if (is_only_active && !is_effect_active) {
