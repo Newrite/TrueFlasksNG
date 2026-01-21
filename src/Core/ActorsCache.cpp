@@ -39,21 +39,22 @@ namespace core::actors_cache
       };
 
       static constexpr auto FLASK_ARRAY_SIZE = 64;
+      static constexpr auto FLASK_TYPE_SIZE = 4;
       flask_cooldown flasks_health[FLASK_ARRAY_SIZE];
       flask_cooldown flasks_magick[FLASK_ARRAY_SIZE];
       flask_cooldown flasks_stamina[FLASK_ARRAY_SIZE];
       flask_cooldown flasks_others[FLASK_ARRAY_SIZE];
-
-      float anti_spam_durations[4]{0.f};
+      
+      float anti_spam_durations[FLASK_TYPE_SIZE]{0.f};
       // 0 - Health, 1 - Stamina, 2 - Magick, 3 - Other
-      bool failed_drink_types[4]{false, false, false, false};
+      bool failed_drink_types[FLASK_TYPE_SIZE]{false, false, false, false};
 
       std::uint64_t last_tick{GetTickCount64()};
 
       void update(const delta_data& delta_data)
       {
         last_tick = GetTickCount64();
-        for (const int i : std::views::iota(0, 4)) {
+        for (const int i : std::views::iota(0, FLASK_TYPE_SIZE)) {
           if (anti_spam_durations[i] > 0.f) {
             anti_spam_durations[i] -= delta_data.delta;
           }

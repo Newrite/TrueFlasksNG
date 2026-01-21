@@ -205,16 +205,10 @@ namespace ui::prisma
 
     auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(ctx.actor->GetFormID());
 
-    bool glow_health = false;
-    bool glow_stamina = false;
-    bool glow_magick = false;
-    bool glow_other = false;
-
-    // Check array for flags
-    if (actor_data.failed_drink_types[0]) { glow_health = true; actor_data.failed_drink_types[0] = false; }
-    if (actor_data.failed_drink_types[1]) { glow_stamina = true; actor_data.failed_drink_types[1] = false; }
-    if (actor_data.failed_drink_types[2]) { glow_magick = true; actor_data.failed_drink_types[2] = false; }
-    if (actor_data.failed_drink_types[3]) { glow_other = true; actor_data.failed_drink_types[3] = false; }
+    bool glow_health = actor_data.failed_drink_types[static_cast<int>(TrueFlasksAPI::FlaskType::Health)];
+    bool glow_stamina = actor_data.failed_drink_types[static_cast<int>(TrueFlasksAPI::FlaskType::Stamina)];;
+    bool glow_magick = actor_data.failed_drink_types[static_cast<int>(TrueFlasksAPI::FlaskType::Magick)];;
+    bool glow_other = actor_data.failed_drink_types[static_cast<int>(TrueFlasksAPI::FlaskType::Other)];;
 
     update_flask(api, view, ctx.actor, TrueFlasksAPI::FlaskType::Health, 0, glow_health);
     update_flask(api, view, ctx.actor, TrueFlasksAPI::FlaskType::Stamina, 1, glow_stamina);

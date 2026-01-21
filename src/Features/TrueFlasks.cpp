@@ -238,7 +238,7 @@ namespace features::true_flasks
     
     const auto flask_glow_callbacks = api::mod_api::get_play_flasks_glow_callbacks();
     
-    for (int i : std::views::iota(0, 4)) {
+    for (int i : std::views::iota(0, core::actors_cache::cache_data::actor_data::FLASK_TYPE_SIZE)) {
       
       if (actor_data.failed_drink_types[i]) {
         
@@ -447,10 +447,10 @@ namespace features::true_flasks
 
     return {static_cast<int>(type), consumes_slot};
   }
-
+  
   export auto api_play_flask_glow(RE::Actor* actor, const flask_type type) -> void
   {
-    if (!actor) return;
+    if (!actor && static_cast<int>(type) < core::actors_cache::cache_data::actor_data::FLASK_TYPE_SIZE) return;
     auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(actor->GetFormID());
     actor_data.failed_drink_types[static_cast<int>(type)] = true;
   }
@@ -475,6 +475,8 @@ namespace features::true_flasks
     out.cap_keyword = settings->cap_keyword;
     out.cooldown_base = settings->cooldown_base;
     out.cooldown_keyword = settings->cooldown_keyword;
+    out.fail_audio = settings->fail_audio;
+    out.fail_audio_edid = settings->fail_audio_edid;
 
     // Fill specific fields
     out.keyword = nullptr;
