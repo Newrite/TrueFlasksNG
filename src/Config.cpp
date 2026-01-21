@@ -30,7 +30,7 @@ namespace config
     RE::BGSKeyword* cooldown_keyword{nullptr};
     
     bool fail_audio{false};
-    std::string fail_audio_edid{""};
+    RE::BGSSoundDescriptorForm* fail_audio_form{nullptr};
   };
 
   export struct flask_settings : flask_settings_base
@@ -150,11 +150,37 @@ namespace config
       }
       return nullptr;
     }
+    
+    [[nodiscard]] auto parse_sound_descriptor(const std::string& val) -> RE::BGSSoundDescriptorForm*
+    {
+      auto res = core::utility::resolved_form_id_from_string(val);
+      if (!res.has_value()) return nullptr;
+      auto form = core::utility::get_form_from_form_id_and_mod_name(res->id, res->mod_name);
+      if (form) {
+        if (auto kw = form->As<RE::BGSSoundDescriptorForm>()) {
+          logger::info("Resolved sound descriptor: {} -> {:08X}", val, kw->GetFormID());
+          return kw;
+        }
+        else {
+          logger::warn("Form is not a sound descriptor: {}", val);
+        }
+      }
+      else {
+        logger::warn("sound descriptor form not found: {}", val);
+      }
+      return nullptr;
+    }
 
     [[nodiscard]] auto keyword_to_string(RE::BGSKeyword* keyword, const std::string& default_val) -> std::string
     {
       if (!keyword) return default_val;
       return core::utility::get_form_id_hex_and_mod_name_as_string(keyword, true);
+    }
+    
+    [[nodiscard]] auto sound_descriptor_to_string(RE::BGSSoundDescriptorForm* sound_desc, const std::string& default_val) -> std::string
+    {
+      if (!sound_desc) return default_val;
+      return core::utility::get_form_id_hex_and_mod_name_as_string(sound_desc, true);
     }
 
     void read_flask_base(const mINI::INIStructure& ini, const std::string& section, flask_settings_base& settings)
@@ -162,6 +188,7 @@ namespace config
       std::string regen_kw = "0x800~Mod.esp";
       std::string cap_kw = "0x800~Mod.esp";
       std::string cd_kw = "0x800~Mod.esp";
+      std::string fail_sound = "0x800~Mod.esp";
 
       if (ini.has(section)) {
         logger::info("Reading section: [{}]", section);
@@ -190,7 +217,7 @@ namespace config
         if (collection.has("FlasksCooldownKeyword")) cd_kw = collection.get("FlasksCooldownKeyword");
         
         if (collection.has("FlasksFailAudio")) parse_bool(collection.get("FlasksFailAudio"), settings.fail_audio);
-        if (collection.has("FlasksAntiSpamDelay")) settings.fail_audio_edid = collection.get("FlasksFailAudioEditorID");
+        if (collection.has("FlasksFailAudioSound")) fail_sound = collection.get("FlasksFailAudioSound");
       }
       else {
         logger::info("Section [{}] not found, using defaults", section);
@@ -199,6 +226,7 @@ namespace config
       settings.regeneration_mult_keyword = parse_keyword(regen_kw);
       settings.cap_keyword = parse_keyword(cap_kw);
       settings.cooldown_keyword = parse_keyword(cd_kw);
+      settings.fail_audio_form = parse_sound_descriptor(fail_sound);
     }
 
     void populate_ini(mINI::INIStructure& ini)
@@ -221,7 +249,7 @@ namespace config
         ini[section]["FlasksCooldownBase"] = std::format("{:.1f}", s.cooldown_base);
         ini[section]["FlasksCooldownKeyword"] = keyword_to_string(s.cooldown_keyword, "0x800~Mod.esp");
         ini[section]["FlasksFailAudio"] = s.fail_audio ? "1" : "0";
-        ini[section]["FlasksFailAudioEditorID"] = s.fail_audio_edid;
+        ini[section]["FlasksFailAudioSound"] = sound_descriptor_to_string(s.fail_audio_form, "0x800~Mod.esp");
       };
 
       write_flask("FlasksOther", flasks_other);
@@ -362,19 +390,99 @@ namespace config
 
       logger::info("Configuration loaded successfully.");
     }
+    
+// Функция для сохранения с сохранением комментариев
+bool save_ini_preserving_comments(const std::filesystem::path& path, mINI::INIStructure& data) {
+    std::ifstream file_in(path);
+    if (!file_in.is_open()) return false;
+
+    std::vector<std::string> lines;
+    std::string line;
+    std::string current_section;
+
+    // Регулярка для поиска секций: [SectionName]
+    std::regex section_regex(R"(^\s*\[([^\]]+)\])");
+    // Регулярка для поиска ключей: Key = Value (и захват комментария после ;)
+    // Группа 1: Всё до значения (ключ + =)
+    // Группа 2: Значение (до ; или конца строки)
+    // Группа 3: Остаток строки (комментарий)
+    std::regex key_regex(R"(^(\s*[^=;]+\s*=\s*)([^;]*)(.*))");
+    
+    std::smatch match;
+
+    while (std::getline(file_in, line)) {
+        // 1. Проверяем, не началась ли новая секция
+        if (std::regex_search(line, match, section_regex)) {
+            current_section = match[1];
+            lines.push_back(line);
+            continue;
+        }
+
+        // 2. Если мы внутри секции, ищем ключи
+        if (!current_section.empty() && std::regex_search(line, match, key_regex)) {
+            std::string full_part_before = match[1].str();
+            std::string key_part = full_part_before.substr(0, full_part_before.find('='));
+            std::string key = core::utility::strings::trim(key_part);
+            
+            std::string comments = match[3].str(); // Сохраняем комментарии в конце строки
+
+            // Если такой ключ есть в наших новых данных
+            if (data.has(current_section) && data[current_section].has(key)) {
+                std::string new_value = data[current_section][key];
+                
+                // Формируем новую строку: "Ключ = " + "НовоеЗначение" + " ; Комментарий"
+                std::string new_line = match[1].str() + new_value + comments;
+                lines.push_back(new_line);
+                
+                // (Опционально) Можно помечать ключ как записанный, чтобы потом добавить новые, 
+                // если их не было в файле. Но для простого конфига это часто лишнее.
+            } else {
+                // Если ключа нет в новых данных (или удален), оставляем как есть
+                lines.push_back(line); 
+            }
+        } else {
+            // Комментарии и пустые строки просто копируем
+            lines.push_back(line);
+        }
+    }
+    file_in.close();
+
+    // 3. Записываем обновленные строки обратно в файл
+    std::ofstream file_out(path);
+    if (!file_out.is_open()) return false;
+    
+    for (const auto& l : lines) {
+        file_out << l << "\n";
+    }
+    
+    return true;
+}
 
     auto save() -> void
     {
       std::lock_guard<std::mutex> lock(mutex_);
 
+      // 1. Сначала подготавливаем данные как обычно
       mINI::INIFile file(config_path_);
       mINI::INIStructure ini;
-
-      file.read(ini);
+  
+      // Если файла нет, mINI должен его создать с нуля (тогда комментариев всё равно нет)
+      // Поэтому сначала проверяем чтение
+      bool file_exists = file.read(ini);
 
       populate_ini(ini);
 
-      if (file.generate(ini, true)) {
+      bool success = false;
+
+      if (file_exists) {
+        // 2. Если файл существует — используем наш умный метод сохранения
+        success = save_ini_preserving_comments(config_path_, ini);
+      } else {
+        // 3. Если файла нет — создаем новый стандартным методом (комментариев терять не жалко)
+        success = file.generate(ini, true);
+      }
+
+      if (success) {
         logger::info("Configuration saved.");
       }
       else {

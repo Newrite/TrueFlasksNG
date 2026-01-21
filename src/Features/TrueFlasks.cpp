@@ -193,8 +193,8 @@ namespace features::true_flasks
       if (!settings->notify.empty()) {
         RE::DebugNotification(settings->notify.c_str());
       }
-      if (!settings->fail_audio && !settings->fail_audio_edid.empty()) {
-        RE::PlaySound(settings->fail_audio_edid.c_str());
+      if (!settings->fail_audio && settings->fail_audio_form) {
+        core::utility::play_sound_base(settings->fail_audio_form, ctx.actor);
       }
       // Trigger glow in UI via flag
       actor_data.failed_drink_types[static_cast<int>(type)] = true;
@@ -476,7 +476,7 @@ namespace features::true_flasks
     out.cooldown_base = settings->cooldown_base;
     out.cooldown_keyword = settings->cooldown_keyword;
     out.fail_audio = settings->fail_audio;
-    out.fail_audio_edid = settings->fail_audio_edid;
+    out.fail_audio_form = settings->fail_audio_form;
 
     // Fill specific fields
     out.keyword = nullptr;

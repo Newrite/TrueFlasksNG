@@ -58,7 +58,7 @@ namespace TrueFlasksAPI
       RE::BGSKeyword* cooldown_keyword;
     
       bool fail_audio;
-      std::string fail_audio_edid;
+      RE::BGSSoundDescriptorForm* fail_audio_form;
 
       // Specifics (nullptr/false if not applicable)
       RE::BGSKeyword* keyword; 

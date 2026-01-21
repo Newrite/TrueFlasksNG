@@ -280,6 +280,16 @@ namespace core::utility
     }
   }
   
+  export auto play_sound_base(RE::BGSSoundDescriptorForm* sound, RE::Actor* actor) -> void
+  {
+    using FuncT = void (*)(RE::TESForm*, int32_t, RE::NiPoint3*, RE::NiNode*);
+    if (sound && actor) {
+      auto actor_position = actor->GetPosition();
+      auto actor_node = actor->GetFireNode();
+      const REL::Relocation<FuncT> func{RELOCATION_ID(32301, 0)};
+      return func(sound, 0, &actor_position, actor_node);
+    }
+  }
 
   export auto form_info(const RE::TESForm* form) -> std::string
   {
