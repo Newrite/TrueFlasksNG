@@ -194,7 +194,9 @@ namespace features::true_flasks
         RE::DebugNotification(settings->notify.c_str());
       }
       if (!settings->fail_audio && settings->fail_audio_form) {
-        core::utility::play_sound_base(settings->fail_audio_form, ctx.actor);
+        // core::utility::play_sound_base(settings->fail_audio_form, ctx.actor);
+        // RE::PlaySound(core::utility::get_editor_id(settings->fail_audio_form));
+        core::utility::game::try_play_sound_at(ctx.actor, settings->fail_audio_form);
       }
       // Trigger glow in UI via flag
       actor_data.failed_drink_types[static_cast<int>(type)] = true;
@@ -206,8 +208,9 @@ namespace features::true_flasks
 
   export void update(const core::hooks_ctx::on_actor_update& ctx)
   {
-    auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(ctx.actor->GetFormID());
+    
     const auto config = config::config_manager::get_singleton();
+    auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(ctx.actor->GetFormID());
 
     auto d_data = core::actors_cache::cache_data::actor_data::delta_data{};
     d_data.delta = ctx.delta;
@@ -276,7 +279,6 @@ namespace features::true_flasks
       logger::info(
         "Checking flask for removal: type {}, settings enable: {}, player: {}, npc: {}, IsPlayer: {}, FormID {}",
         static_cast<int>(type), settings->enable, settings->player, settings->npc, is_player, ctx.actor->GetFormID());
-      logger::info("{}", core::utility::form_info(ctx.actor));
 
       if (!settings->enable) return;
 

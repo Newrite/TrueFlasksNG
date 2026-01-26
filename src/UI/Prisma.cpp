@@ -146,7 +146,7 @@ namespace ui::prisma
     int max_slots{-1};
   };
 
-  flask_state last_states[4];
+  // flask_state last_states[4];
 
   void update_flask(PRISMA_UI_API::IVPrismaUI1* api, PrismaView view, RE::Actor* actor, TrueFlasksAPI::FlaskType type,
                     int type_idx, bool force_glow = false)
@@ -156,28 +156,11 @@ namespace ui::prisma
     int count = features::true_flasks::api_get_current_slots(actor, type);
     int max_slots = features::true_flasks::api_get_max_slots(actor, type);
 
-    // Проверяем изменения
-    // Мы отправляем данные, если:
-    // 1. Форсировано свечение (неудачная попытка выпить)
-    // 2. Изменился процент заполнения (с порогом для оптимизации)
-    // 3. Изменилось количество зарядов (КРИТИЧНО для цифры и финального свечения)
-    // 4. Изменилось максимальное количество зарядов (для автоскрытия)
-    // bool pct_changed = std::abs(pct - last_states[type_idx].fill_percent) > 0.005f; // Чуть увеличил порог, 0.001 слишком часто
-    // bool count_changed = count != last_states[type_idx].count;
-    // bool max_slots_changed = max_slots != last_states[type_idx].max_slots;
-    
-    // if (force_glow || pct_changed || count_changed || max_slots_changed) {
-      
-      last_states[type_idx].fill_percent = pct;
-      last_states[type_idx].count = count;
-      last_states[type_idx].max_slots = max_slots;
-
       flask_update_data data{type_idx, pct, count, max_slots, force_glow};
       
       std::string json;
       // Используем write_json из glaze, как и было
       if (const auto ec = glz::write_json(data, json)) {
-        // Логирование ошибки можно убрать в релизе для спама
         return;
       }
       

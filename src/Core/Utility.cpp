@@ -279,17 +279,6 @@ namespace core::utility
     }
     }
   }
-  
-  export auto play_sound_base(RE::BGSSoundDescriptorForm* sound, RE::Actor* actor) -> void
-  {
-    using FuncT = void (*)(RE::TESForm*, int32_t, RE::NiPoint3*, RE::NiNode*);
-    if (sound && actor) {
-      auto actor_position = actor->GetPosition();
-      auto actor_node = actor->GetFireNode();
-      const REL::Relocation<FuncT> func{RELOCATION_ID(32301, 0)};
-      return func(sound, 0, &actor_position, actor_node);
-    }
-  }
 
   export auto form_info(const RE::TESForm* form) -> std::string
   {
@@ -565,4 +554,39 @@ namespace core::utility::game
     static REL::Relocation<func_t> func{RELOCATION_ID(55672, 56203)};
     return func(NULL, NULL, target, object, count, persistent, disabled);
   }
+  
+  bool try_play_sound_at_impl(const RE::TESObjectREFR* refr, RE::BGSSoundDescriptorForm* descriptor, float volume) 
+  {
+    if (!refr || !descriptor) return false;
+
+    RE::BSSoundHandle sound;
+    sound.soundID = RE::BSSoundHandle::kInvalidID;
+    sound.assumeSuccess = false;
+    sound.state = RE::BSSoundHandle::AssumedState::kPlaying;
+
+    if (const auto manager = RE::BSAudioManager::GetSingleton()) {
+      if (!manager->BuildSoundDataFromDescriptor(sound, descriptor))
+        return false;
+
+      if (!sound.SetPosition(refr->GetPosition()))
+        return false;
+
+      sound.SetObjectToFollow(refr->Get3D());
+      sound.SetVolume(volume);
+    }
+
+    return sound.Play();
+  }
+  
+  export bool try_play_sound_at(const RE::TESObjectREFR* refr, RE::BGSSoundDescriptorForm* descriptor) {
+    if (!refr || !descriptor) return false;
+    
+    if (!descriptor->soundDescriptor) return false;
+
+    const auto sound_category = descriptor->soundDescriptor->category;
+    return try_play_sound_at_impl(refr, descriptor, sound_category ? sound_category->GetCategoryVolume() : 1.f);
+  }
+
+
+  
 }

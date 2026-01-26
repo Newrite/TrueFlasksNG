@@ -108,6 +108,9 @@ namespace ui::skse_menu
         changed = true;
       }
       RenderTooltip("Notification message shown to the player when they cannot drink more of this flask.");
+      
+      if (ImGui::Checkbox("Enable Fail Audio", &settings.fail_audio)) changed = true;
+      RenderTooltip("If enable, play audio feedback when a flask fails to activate.");
 
       if (ImGui::Checkbox("Parallel Cooldown", &settings.enable_parallel_cooldown)) changed = true;
       RenderTooltip("If true, all slots cool down simultaneously. If false, they cool down one by one.");
