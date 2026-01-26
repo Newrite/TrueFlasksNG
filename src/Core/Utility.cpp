@@ -558,18 +558,20 @@ namespace core::utility::game
   bool try_play_sound_at_impl(const RE::TESObjectREFR* refr, RE::BGSSoundDescriptorForm* descriptor, float volume) 
   {
     if (!refr || !descriptor) return false;
-
+    
     RE::BSSoundHandle sound;
     sound.soundID = RE::BSSoundHandle::kInvalidID;
     sound.assumeSuccess = false;
     sound.state = RE::BSSoundHandle::AssumedState::kPlaying;
 
     if (const auto manager = RE::BSAudioManager::GetSingleton()) {
-      if (!manager->BuildSoundDataFromDescriptor(sound, descriptor))
+      if (!manager->BuildSoundDataFromDescriptor(sound, descriptor)) {
         return false;
+      }
 
-      if (!sound.SetPosition(refr->GetPosition()))
+      if (!sound.SetPosition(refr->GetPosition())) {
         return false;
+      }
 
       sound.SetObjectToFollow(refr->Get3D());
       sound.SetVolume(volume);
@@ -579,7 +581,9 @@ namespace core::utility::game
   }
   
   export bool try_play_sound_at(const RE::TESObjectREFR* refr, RE::BGSSoundDescriptorForm* descriptor) {
+    
     if (!refr || !descriptor) return false;
+    
     
     if (!descriptor->soundDescriptor) return false;
 

@@ -55,6 +55,9 @@ namespace config
     float y{0.5f};
     float size{0.5f};
     float opacity{1.0f};
+    
+    bool fill_animation{true};
+    bool fill_animation_only_zero{false};
   };
 
   export struct prisma_widget_settings
@@ -100,10 +103,10 @@ namespace config
       flasks_other.anti_spam = false;
 
       // Prisma Widget Flasks Defaults
-      prisma_widget.health = { 0.51f, 0.28f, 0.50f, 1.00f };
-      prisma_widget.stamina = { 0.04f, 0.00f, 0.50f, 0.99f };
-      prisma_widget.magick = { 0.50f, 0.63f, 0.50f, 1.00f };
-      prisma_widget.other = { 0.50f, 0.50f, 0.50f, 1.00f };
+      prisma_widget.health = { 0.51f, 0.28f, 0.50f, 1.00f, true, false };
+      prisma_widget.stamina = { 0.04f, 0.00f, 0.50f, 0.99f, true, false };
+      prisma_widget.magick = { 0.50f, 0.63f, 0.50f, 1.00f, true, false };
+      prisma_widget.other = { 0.50f, 0.50f, 0.50f, 1.00f, true, false };
     }
 
   private:
@@ -280,6 +283,9 @@ namespace config
         ini["PrismaWidget"][prefix + "Y"] = std::format("{:.2f}", s.y);
         ini["PrismaWidget"][prefix + "Size"] = std::format("{:.2f}", s.size);
         ini["PrismaWidget"][prefix + "Opacity"] = std::format("{:.2f}", s.opacity);
+        
+        ini["PrismaWidget"][prefix + "FillAnimation"] = s.fill_animation ? "1" : "0";
+        ini["PrismaWidget"][prefix + "FillAnimationOnlyZero"] = s.fill_animation_only_zero ? "1" : "0";
       };
 
       write_prisma_flask("PrismaFlasksHealth", prisma_widget.health);
@@ -380,6 +386,9 @@ namespace config
           if (sec.has(prefix + "Y")) parse_float(sec.get(prefix + "Y"), s.y);
           if (sec.has(prefix + "Size")) parse_float(sec.get(prefix + "Size"), s.size);
           if (sec.has(prefix + "Opacity")) parse_float(sec.get(prefix + "Opacity"), s.opacity);
+          
+          if (sec.has(prefix + "FillAnimation")) parse_bool(sec.get(prefix + "FillAnimation"), s.fill_animation);
+          if (sec.has(prefix + "FillAnimationOnlyZero")) parse_bool(sec.get(prefix + "FillAnimationOnlyZero"), s.fill_animation_only_zero);
         };
 
         read_prisma_flask("PrismaFlasksHealth", prisma_widget.health);

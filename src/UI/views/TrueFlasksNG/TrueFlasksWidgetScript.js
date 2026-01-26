@@ -19,14 +19,20 @@ const CSS_INTERNAL_PADDING = 60;
 
 const flasks = [
     // Добавлено поле groupId для надежного поиска враппера (Исправление позиционирования)
-    { id: 'flask-health', groupId: 'flask-group-health', counterId: 'flask-counter-health', type: 0, color: '#6a0020' },
-    { id: 'flask-stamina', groupId: 'flask-group-stamina', counterId: 'flask-counter-stamina', type: 1, color: '#2f7d33' },
-    { id: 'flask-magick', groupId: 'flask-group-magick', counterId: 'flask-counter-magick', type: 2, color: '#2f4ba4' },
-    { id: 'flask-other', groupId: 'flask-group-other', counterId: 'flask-counter-other', type: 3, color: '#7b4997' }
+    {id: 'flask-health', groupId: 'flask-group-health', counterId: 'flask-counter-health', type: 0, color: '#6a0020'},
+    {
+        id: 'flask-stamina',
+        groupId: 'flask-group-stamina',
+        counterId: 'flask-counter-stamina',
+        type: 1,
+        color: '#2f7d33'
+    },
+    {id: 'flask-magick', groupId: 'flask-group-magick', counterId: 'flask-counter-magick', type: 2, color: '#2f4ba4'},
+    {id: 'flask-other', groupId: 'flask-group-other', counterId: 'flask-counter-other', type: 3, color: '#7b4997'}
 ];
 
 const flaskElements = {};
-let globalSettings = { auto_hide: false, opacity: 1.0 };
+let globalSettings = {auto_hide: false, opacity: 1.0};
 
 function initFlask(item) {
     const obj = document.getElementById(item.id);
@@ -145,10 +151,13 @@ window.setWidgetSettings = (settingsJson) => {
             container.style.opacity = '1';
 
             const apply = (type, s) => {
-                let el = flaskElements[type]?.wrapper || document.getElementById(flasks.find(f=>f.type===type)?.groupId);
+                let el = flaskElements[type]?.wrapper || document.getElementById(flasks.find(f => f.type === type)?.groupId);
                 if (!el) return;
 
-                if (s.enabled === false) { el.style.opacity = '0'; return; }
+                if (s.enabled === false) {
+                    el.style.opacity = '0';
+                    return;
+                }
 
                 // Применяем жесткие координаты
                 el.style.left = (s.x * window.innerWidth) + 'px';
@@ -159,9 +168,14 @@ window.setWidgetSettings = (settingsJson) => {
                     el.style.opacity = s.opacity;
                 }
             };
-            apply(0, settings.health); apply(1, settings.stamina); apply(2, settings.magick); apply(3, settings.other);
+            apply(0, settings.health);
+            apply(1, settings.stamina);
+            apply(2, settings.magick);
+            apply(3, settings.other);
         }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+        console.error(e);
+    }
 };
 
 window.setWidgetSettingsInit = (settingsJson) => setTimeout(() => window.setWidgetSettings(settingsJson), 1500);
@@ -171,32 +185,33 @@ window.setWidgetSettingsInit = (settingsJson) => setTimeout(() => window.setWidg
 window.updateFlaskData = (args) => {
     if (!args) return;
 
-    let flaskType, fillPercent, count, maxSlots, shouldGlow;
+    let flaskType, fillPercent, count, maxSlots, shouldGlow, animationFill, animationFillOnlyZero;
 
-    // Парсинг
-    if (args.trim().startsWith('{')) {
-        try {
-            const params = JSON.parse(args);
-            flaskType = parseInt(params.typeIndex);
-            fillPercent = parseFloat(params.percent);
-            count = parseInt(params.count);
-            maxSlots = parseInt(params.max_slots);
-            shouldGlow = params.forceGlow;
-        } catch(e) { return; }
-    } else {
-        const parts = args.split(',');
-        if (parts.length < 4) return;
-        flaskType = parseInt(parts[0]);
-        fillPercent = parseFloat(parts[1]);
-        count = parseInt(parts[2]);
-        shouldGlow = parts[3] === '1';
-        maxSlots = 1;
+    try {
+        const params = JSON.parse(args);
+        flaskType = parseInt(params.typeIndex);
+        fillPercent = parseFloat(params.percent);
+        count = parseInt(params.count);
+        maxSlots = parseInt(params.max_slots);
+        shouldGlow = params.forceGlow;
+        animationFill = params.fill_animation;
+        animationFillOnlyZero = params.fill_animation_only_zero;
+    } catch (e) {
+        return;
     }
 
     const el = flaskElements[flaskType];
     if (!el) return;
 
     el.maxSlots = maxSlots;
+    
+    if (!animationFill) {
+        fillPercent = 1.0;
+    }
+    
+    if (animationFill && animationFillOnlyZero && count > 0) {
+        fillPercent = 1.0;
+    }
 
     // ---------------------------------------------------------
     // 1. Визуализация заполнения (Mapping)
@@ -290,10 +305,10 @@ document.addEventListener('DOMContentLoaded', () => {
 // =========================================================
 const DEBUG_FLASKS = false;
 
-window.addEventListener('load', function() {
+window.addEventListener('load', function () {
 
     if (!DEBUG_FLASKS) return;
-    
+
     window.Hide();
     window.Show();
 
@@ -312,10 +327,10 @@ window.addEventListener('load', function() {
             x: 0, y: 0, size: 1.0, opacity: 1.0,
             anchor_all: true,
             auto_hide: false,
-            health:  { enabled: true, x: 0.3, y: 0.4, size: 0.8, opacity: 1.0 },
-            stamina: { enabled: true, x: 0.4, y: 0.4, size: 0.8, opacity: 1.0 },
-            magick:  { enabled: true, x: 0.5, y: 0.4, size: 0.8, opacity: 1.0 },
-            other:   { enabled: true, x: 0.6, y: 0.4, size: 0.8, opacity: 1.0 }
+            health: {enabled: true, x: 0.3, y: 0.4, size: 0.8, opacity: 1.0},
+            stamina: {enabled: true, x: 0.4, y: 0.4, size: 0.8, opacity: 1.0},
+            magick: {enabled: true, x: 0.5, y: 0.4, size: 0.8, opacity: 1.0},
+            other: {enabled: true, x: 0.6, y: 0.4, size: 0.8, opacity: 1.0}
         };
 
         setTimeout(() => {
@@ -329,7 +344,9 @@ window.addEventListener('load', function() {
                     } else {
                         console.log("✅ Доступ к SVG есть.");
                     }
-                } catch (e) { console.error("Ошибка безопасности:", e); }
+                } catch (e) {
+                    console.error("Ошибка безопасности:", e);
+                }
             }
 
             if (window.setWidgetSettings) {
@@ -356,11 +373,17 @@ window.addEventListener('load', function() {
                 }));
 
                 if (!magicCooldown && Math.random() < 0.01 && magicCount > 0) {
-                    magicCount--; magicCooldown = true; magicVal = 0.0;
+                    magicCount--;
+                    magicCooldown = true;
+                    magicVal = 0.0;
                 }
                 if (magicCooldown) {
                     magicVal += 0.01;
-                    if (magicVal >= 1.0) { magicVal = 1.0; magicCount++; magicCooldown = false; }
+                    if (magicVal >= 1.0) {
+                        magicVal = 1.0;
+                        magicCount++;
+                        magicCooldown = false;
+                    }
                 }
                 window.updateFlaskData(JSON.stringify({
                     typeIndex: 2, percent: magicVal, count: magicCount, max_slots: 3, forceGlow: false
@@ -370,9 +393,17 @@ window.addEventListener('load', function() {
         }, 500);
 
         // Тест переключения режимов
-        setTimeout(() => {window.setWidgetSettings(JSON.stringify({...mockSettings, enable: false}))}, 2500);
-        setTimeout(() => {window.setWidgetSettings(JSON.stringify({...mockSettings, anchor_all: false}))}, 3500); // Тест раздельного
-        setTimeout(() => {window.setWidgetSettings(JSON.stringify({...mockSettings, anchor_all: true}))}, 5500); // Возврат к общему (проверка очистки стилей)
-        setTimeout(() => {window.setWidgetSettings(JSON.stringify({...mockSettings, enable: true}))}, 4500);
+        setTimeout(() => {
+            window.setWidgetSettings(JSON.stringify({...mockSettings, enable: false}))
+        }, 2500);
+        setTimeout(() => {
+            window.setWidgetSettings(JSON.stringify({...mockSettings, anchor_all: false}))
+        }, 3500); // Тест раздельного
+        setTimeout(() => {
+            window.setWidgetSettings(JSON.stringify({...mockSettings, anchor_all: true}))
+        }, 5500); // Возврат к общему (проверка очистки стилей)
+        setTimeout(() => {
+            window.setWidgetSettings(JSON.stringify({...mockSettings, enable: true}))
+        }, 4500);
     }
 });

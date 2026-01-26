@@ -160,6 +160,12 @@ namespace ui::skse_menu
 
       if (ImGui::DragFloat("Opacity", &settings.opacity, 0.001f, 0.0f, 1.0f, "%.3f")) changed = true;
       RenderTooltip("Opacity for this flask type.");
+      
+      if (ImGui::Checkbox("Fill Animation", &settings.fill_animation)) changed = true;
+      RenderTooltip("If true, enables the visual fill animation for this flask widget.");
+      
+      if (ImGui::Checkbox("Fill Animation Only Zero", &settings.fill_animation_only_zero)) changed = true;
+      RenderTooltip("If true, the fill animation plays ONLY when the flask is completely empty (0 charges).");
 
       if (changed) {
         config::config_manager::get_singleton()->save();

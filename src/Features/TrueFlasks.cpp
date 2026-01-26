@@ -193,8 +193,8 @@ namespace features::true_flasks
       if (!settings->notify.empty()) {
         RE::DebugNotification(settings->notify.c_str());
       }
-      if (!settings->fail_audio && settings->fail_audio_form) {
-        // core::utility::play_sound_base(settings->fail_audio_form, ctx.actor);
+      logger::info("Player fail drink flask type -> {}", static_cast<int>(type));
+      if (settings->fail_audio && settings->fail_audio_form) {
         // RE::PlaySound(core::utility::get_editor_id(settings->fail_audio_form));
         core::utility::game::try_play_sound_at(ctx.actor, settings->fail_audio_form);
       }
