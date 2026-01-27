@@ -244,7 +244,11 @@ namespace ui::prisma
     }
 
     auto prisma = core::mods_api_repository::get_prisma_ui();
+    if (!prisma) {
+      return;
+    }
     auto& view = get_view_ref();
+    
 
     if (auto ui = RE::UI::GetSingleton()) {
       bool isLoadingMenu = ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME);
