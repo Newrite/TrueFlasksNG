@@ -32,6 +32,7 @@ namespace ui::prisma
     float opacity{0.5f};
     bool anchor_all{true};
     bool auto_hide{false};
+    bool always_show_in_combat{false};
 
     flask_widget_settings health;
     flask_widget_settings stamina;
@@ -48,6 +49,7 @@ namespace ui::prisma
     bool forceGlow;
     bool fill_animation;
     bool fill_animation_only_zero;
+    bool in_combat;
   };
 
   bool view_init = false;
@@ -76,6 +78,7 @@ namespace ui::prisma
     settings.opacity = cfg.opacity;
     settings.anchor_all = cfg.anchor_all_elements;
     settings.auto_hide = config->prisma_widget.auto_hide_ui;
+    settings.always_show_in_combat = config->prisma_widget.always_show_in_combat;
 
     auto fill_flask_settings = [&](flask_widget_settings& out, const config::prisma_flask_widget_settings& in,
                                    const config::flask_settings_base& base) {
@@ -172,7 +175,7 @@ namespace ui::prisma
     }
     }
 
-    flask_update_data data{type_idx, pct, count, max_slots, force_glow, flask_setting.fill_animation, flask_setting.fill_animation_only_zero};
+    flask_update_data data{type_idx, pct, count, max_slots, force_glow, flask_setting.fill_animation, flask_setting.fill_animation_only_zero, actor->IsInCombat()};
 
     std::string json;
     // Используем write_json из glaze, как и было

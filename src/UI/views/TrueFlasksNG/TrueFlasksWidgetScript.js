@@ -32,7 +32,7 @@ const flasks = [
 ];
 
 const flaskElements = {};
-let globalSettings = {auto_hide: false, opacity: 1.0};
+let globalSettings = {auto_hide: false, opacity: 1.0, always_show_in_combat: false};
 
 function initFlask(item) {
     const obj = document.getElementById(item.id);
@@ -102,6 +102,8 @@ window.setWidgetSettings = (settingsJson) => {
     try {
         const settings = JSON.parse(settingsJson);
         globalSettings = settings;
+        globalSettings.auto_hide = settings.auto_hide;
+        globalSettings.always_show_in_combat = settings.always_show_in_combat;
         const container = document.getElementById('widget-container');
         if (!container) return;
 
@@ -185,7 +187,7 @@ window.setWidgetSettingsInit = (settingsJson) => setTimeout(() => window.setWidg
 window.updateFlaskData = (args) => {
     if (!args) return;
 
-    let flaskType, fillPercent, count, maxSlots, shouldGlow, animationFill, animationFillOnlyZero;
+    let flaskType, fillPercent, count, maxSlots, shouldGlow, animationFill, animationFillOnlyZero, in_combat;
 
     try {
         const params = JSON.parse(args);
@@ -196,6 +198,7 @@ window.updateFlaskData = (args) => {
         shouldGlow = params.forceGlow;
         animationFill = params.fill_animation;
         animationFillOnlyZero = params.fill_animation_only_zero;
+        in_combat = params.in_combat;
     } catch (e) {
         return;
     }
@@ -256,7 +259,9 @@ window.updateFlaskData = (args) => {
     if (el.wrapper) {
         let targetOpacity = '1';
 
-        if (globalSettings.auto_hide) {
+        const shouldShowDueToCombat = globalSettings.always_show_in_combat && in_combat;
+
+        if (globalSettings.auto_hide && !shouldShowDueToCombat) {
             // Скрываем, если полная фласка
             if (count >= maxSlots) {
                 targetOpacity = '0';

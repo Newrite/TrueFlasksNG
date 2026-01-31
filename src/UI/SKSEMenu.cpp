@@ -187,6 +187,9 @@ namespace ui::skse_menu
 
     if (ImGui::Checkbox("Auto Hide UI", &config->prisma_widget.auto_hide_ui)) changed = true;
     RenderTooltip("Automatically hide the UI when flasks are full.");
+    
+    if (ImGui::Checkbox("Always Show In Combat", &config->prisma_widget.always_show_in_combat)) changed = true;
+    RenderTooltip("In combat all widget element always visible.");
 
     if (config->prisma_widget.enable) {
       if (ImGui::DragFloat("Global X", &config->prisma_widget.x, 0.001f, 0.00f, 1.0f, "%.3f")) changed = true;

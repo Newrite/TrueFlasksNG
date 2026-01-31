@@ -64,6 +64,7 @@ namespace config
   {
     bool enable{true};
     bool auto_hide_ui{false};
+    bool always_show_in_combat{false};
     float x{0.10f};
     float y{0.72f};
     float size{0.50f};
@@ -272,6 +273,7 @@ namespace config
       // PrismaWidget
       ini["PrismaWidget"]["PrismaEnable"] = prisma_widget.enable ? "1" : "0";
       ini["PrismaWidget"]["AutoHideUI"] = prisma_widget.auto_hide_ui ? "1" : "0";
+      ini["PrismaWidget"]["AlwaysShowInCombat"] = prisma_widget.always_show_in_combat ? "1" : "0";
       ini["PrismaWidget"]["PrismaPositionX"] = std::format("{:.2f}", prisma_widget.x);
       ini["PrismaWidget"]["PrismaPositionY"] = std::format("{:.2f}", prisma_widget.y);
       ini["PrismaWidget"]["PrismaSize"] = std::format("{:.2f}", prisma_widget.size);
@@ -299,11 +301,11 @@ namespace config
       populate_ini(ini);
 
       if (file.generate(ini, true)) {
-        logger::info("Default configuration generated at {}", config_path_.string());
+        logger::info("Default configuration generated");
         return;
       }
 
-      logger::error("Error when try create default configuration at {}", config_path_.string());
+      logger::error("Error when try create default configuration");
     }
 
   public:
@@ -323,7 +325,7 @@ namespace config
     {
       std::lock_guard<std::mutex> lock(mutex_);
 
-      logger::info("Loading configuration from {}", config_path_.string());
+      logger::info("Loading configuration");
 
       mINI::INIFile file(config_path_);
       mINI::INIStructure ini;
@@ -373,6 +375,7 @@ namespace config
         const auto& sec = ini.get("PrismaWidget");
         if (sec.has("PrismaEnable")) parse_bool(sec.get("PrismaEnable"), prisma_widget.enable);
         if (sec.has("AutoHideUI")) parse_bool(sec.get("AutoHideUI"), prisma_widget.auto_hide_ui);
+        if (sec.has("AlwaysShowInCombat")) parse_bool(sec.get("AlwaysShowInCombat"), prisma_widget.always_show_in_combat);
         if (sec.has("PrismaPositionX")) parse_float(sec.get("PrismaPositionX"), prisma_widget.x);
         if (sec.has("PrismaPositionY")) parse_float(sec.get("PrismaPositionY"), prisma_widget.y);
         if (sec.has("PrismaSize")) parse_float(sec.get("PrismaSize"), prisma_widget.size);
@@ -502,7 +505,7 @@ bool save_ini_preserving_comments(const std::filesystem::path& path, mINI::INISt
 
   export void on_menu_event(const events::events_ctx::process_event_menu_ctx& ctx)
   {
-    if (!ctx.is_opening && ctx.menu_name == RE::MainMenu::MENU_NAME) {
+    if (!ctx.is_opening && ctx.menu_name == RE::JournalMenu::MENU_NAME) {
       config_manager::get_singleton()->load();
     }
   }
