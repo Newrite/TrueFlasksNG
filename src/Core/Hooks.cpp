@@ -32,6 +32,7 @@ namespace core::hooks
     static constexpr auto addr_vtable_player_character = RE::PlayerCharacter::VTABLE[0];
     static constexpr auto offset_vtable_update = RELOCATION_OFFSET(0xAD, 0xAD);
     static constexpr auto offset_vtable_drink_potion = RELOCATION_OFFSET(0x10F, 0x10F);
+    static constexpr auto offset_vtable_drink_potion_vr = 0x111;
     static constexpr auto offset_vtable_remove_item = RELOCATION_OFFSET(0x56, 0x56);
 
     static auto on_update(hooks_ctx::on_actor_update& ctx) -> void
@@ -148,8 +149,10 @@ namespace core::hooks
 
     static auto install_hook() -> void
     {
+      constexpr auto is_vr = REL::Module::IsVR();
+      
       write_vfunc(REL::Relocation<>{addr_vtable_character},
-                  offset_vtable_update,
+                  is_vr ? offset_vtable_drink_potion_vr : offset_vtable_update,
                   on_update_character,
                   on_update_character_original, "on_update_character");
       write_vfunc(REL::Relocation<>{addr_vtable_player_character},
