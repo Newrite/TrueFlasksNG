@@ -64,6 +64,9 @@ namespace core::actors_cache
           for (const int i : std::views::iota(0, FLASK_ARRAY_SIZE)) {
             if (flasks[i].cooldown_current > 0.f) {
               flasks[i].cooldown_current -= delta;
+              if (flasks[i].cooldown_current < 0.f) {
+                flasks[i].cooldown_current = 0.f;
+              }
               if (!parallel) {
                 return;
               }

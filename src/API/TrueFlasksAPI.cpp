@@ -7,7 +7,7 @@ namespace api
 {
   using namespace TrueFlasksAPI;
 
-  class TrueFlasksAPI_V1 : public IVTrueFlasks1
+  class TrueFlasksAPI : public IVTrueFlasks2
   {
   public:
     void ModifyCooldown(RE::Actor* actor, FlaskType type, float amount, bool all_slots) noexcept override
@@ -66,6 +66,7 @@ namespace api
       callbacks->emplace(plugin_handle, glow_callback);
       return APIResult::OK;
     }
+    
     APIResult RemovePlayFlaskGlowCallback(SKSE::PluginHandle plugin_handle) noexcept override
     {
       auto callbacks = mod_api::get_play_flasks_glow_callbacks();
@@ -75,15 +76,22 @@ namespace api
       callbacks->erase(plugin_handle);
       return APIResult::OK;
     }
+    
+    bool ConsumeFlaskSlot(RE::Actor* actor, FlaskType type) noexcept override
+    {
+      return features::true_flasks::api_consume_flask_slot(actor, static_cast<features::true_flasks::flask_type>(type));
+    }
+    
   };
   
-  static TrueFlasksAPI_V1 g_TrueFlasksAPI_V1;
+  static TrueFlasksAPI g_TrueFlasksAPI;
 
   extern "C" __declspec(dllexport) void* RequestPluginAPI(const InterfaceVersion interfaceVersion)
   {
     switch (interfaceVersion) {
     case InterfaceVersion::V1:
-      return &g_TrueFlasksAPI_V1;
+    case InterfaceVersion::V2:
+      return &g_TrueFlasksAPI;
     default:
       return nullptr;
     }

@@ -149,10 +149,10 @@ namespace core::hooks
 
     static auto install_hook() -> void
     {
-      constexpr auto is_vr = REL::Module::IsVR();
+      const auto is_vr = REL::Module::IsVR();
       
       write_vfunc(REL::Relocation<>{addr_vtable_character},
-                  is_vr ? offset_vtable_drink_potion_vr : offset_vtable_update,
+                  offset_vtable_update,
                   on_update_character,
                   on_update_character_original, "on_update_character");
       write_vfunc(REL::Relocation<>{addr_vtable_player_character},
@@ -160,11 +160,11 @@ namespace core::hooks
                   on_update_player_character,
                   on_update_player_character_original, "on_update_player_character");
       write_vfunc(REL::Relocation<>{addr_vtable_character},
-                  offset_vtable_drink_potion,
+                  is_vr ? offset_vtable_drink_potion_vr : offset_vtable_drink_potion,
                   on_drink_potion_character,
                   on_drink_potion_character_original, "on_drink_potion_character");
       write_vfunc(REL::Relocation<>{addr_vtable_player_character},
-                  offset_vtable_drink_potion,
+                  is_vr ? offset_vtable_drink_potion_vr : offset_vtable_drink_potion,
                   on_drink_potion_player_character,
                   on_drink_potion_player_character_original, "on_drink_potion_player_character");
       write_vfunc(REL::Relocation<>{addr_vtable_character},

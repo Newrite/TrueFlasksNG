@@ -12,7 +12,8 @@ namespace TrueFlasksAPI
   /// </summary>
   enum class InterfaceVersion : uint8_t
   {
-    V1
+    V1,
+    V2
   };
 
   /// <summary>
@@ -164,6 +165,21 @@ namespace TrueFlasksAPI
     /// <returns>APIResult::OK if removed successfully.</returns>
     virtual APIResult RemovePlayFlaskGlowCallback(SKSE::PluginHandle plugin_handle) noexcept = 0;
   };
+  
+  /// <summary>
+  /// Interface for interacting with the TrueFlasksNG plugin (Version 2).
+  /// </summary>
+  class IVTrueFlasks2 : IVTrueFlasks1
+  {
+  public:
+    /// <summary>
+    /// Attempts to consume a flask slot for the specified actor and flask type.
+    /// </summary>
+    /// <param name="actor">The target actor.</param>
+    /// <param name="type">The flask type.</param>
+    /// <returns>True if a slot was successfully consumed, false otherwise (e.g., no slots available).</returns>
+    virtual bool ConsumeFlaskSlot(RE::Actor* actor, FlaskType type) noexcept = 0;
+  };
 
   typedef void* (*_RequestPluginAPI)(const InterfaceVersion interfaceVersion);
 
@@ -172,7 +188,7 @@ namespace TrueFlasksAPI
   /// </summary>
   /// <param name="a_interfaceVersion">The requested interface version.</param>
   /// <returns>Pointer to the API interface or nullptr if not found.</returns>
-  [[nodiscard]] inline void* RequestPluginAPI(const InterfaceVersion a_interfaceVersion = InterfaceVersion::V1)
+  [[nodiscard]] inline void* RequestPluginAPI(const InterfaceVersion a_interfaceVersion = InterfaceVersion::V2)
   {
     auto pluginHandle = GetModuleHandleA("TrueFlasksNG.dll");
     _RequestPluginAPI requestAPIFunction = (_RequestPluginAPI)GetProcAddress(pluginHandle, "RequestPluginAPI");

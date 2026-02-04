@@ -348,6 +348,57 @@ namespace core::utility
 
     return ni_actor.get();
   }
+  
+  export struct visitor_magic_target_sum_by_keyword : RE::MagicTarget::ForEachActiveEffectVisitor
+  {
+    
+    explicit visitor_magic_target_sum_by_keyword(RE::BGSKeyword* keyword_filter) : keyword(keyword_filter) {}
+    
+    float sum = 0.f;
+    
+  private:
+    RE::BGSKeyword* keyword;
+    
+    bool filter(const RE::ActiveEffect* active_effect)
+    {
+      if (!active_effect) return false;
+      if (active_effect->flags.any(RE::ActiveEffect::Flag::kInactive)) return false;
+      if (!active_effect->effect) return false;
+      if (!active_effect->effect->baseEffect) return false;
+      if (!active_effect->effect->baseEffect->data.flags.any(RE::EffectSetting::EffectSettingData::Flag::kRecover)) return false;
+      
+      return active_effect->effect->baseEffect->HasKeyword(keyword);
+    }
+    
+    RE::BSContainer::ForEachResult Accept(RE::ActiveEffect* active_effect) override
+    {
+      
+      if (filter(active_effect)) {
+        const auto is_detrimental = active_effect->effect->baseEffect->data.flags.any(RE::EffectSetting::EffectSettingData::Flag::kDetrimental);
+        
+        if (is_detrimental) {
+          sum = sum - active_effect->magnitude;
+          return RE::BSContainer::ForEachResult::kContinue;
+        }
+        
+        sum = sum + active_effect->magnitude;
+      }
+      
+      return RE::BSContainer::ForEachResult::kContinue;
+    }
+  }; 
+  
+  export auto get_sum_of_active_effects_magnitude_with_keyword(RE::Actor* actor, RE::BGSKeyword* keyword) -> float
+  {
+    if (!actor || !keyword || !actor->AsMagicTarget()) {
+      return 0.f;
+    }
+    
+    auto visitor = visitor_magic_target_sum_by_keyword(keyword);
+    actor->AsMagicTarget()->VisitEffects(visitor);
+    
+    return visitor.sum;
+  }
 
   export auto get_active_effects_by_keyword(RE::Actor* actor,
                                             const RE::BGSKeyword* keyword,

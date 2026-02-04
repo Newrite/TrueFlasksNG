@@ -69,8 +69,9 @@ namespace features::true_flasks
   {
     auto base = static_cast<float>(settings.cap_base);
     if (settings.cap_keyword) {
-      const auto effects = core::utility::get_active_effects_by_keyword(actor, settings.cap_keyword);
-      base += core::utility::get_magnitude_sum_of_active_effects(&effects);
+      // const auto effects = core::utility::get_active_effects_by_keyword(actor, settings.cap_keyword);
+      // base += core::utility::get_magnitude_sum_of_active_effects(&effects);
+      base += core::utility::get_sum_of_active_effects_magnitude_with_keyword(actor, settings.cap_keyword);
     }
     return static_cast<int>((std::max)(0.f, base));
   }
@@ -79,8 +80,9 @@ namespace features::true_flasks
   {
     auto base = settings.cooldown_base;
     if (settings.cooldown_keyword) {
-      const auto effects = core::utility::get_active_effects_by_keyword(actor, settings.cooldown_keyword);
-      base += core::utility::get_magnitude_sum_of_active_effects(&effects);
+      // const auto effects = core::utility::get_active_effects_by_keyword(actor, settings.cooldown_keyword);
+      // base += core::utility::get_magnitude_sum_of_active_effects(&effects);
+      base += core::utility::get_sum_of_active_effects_magnitude_with_keyword(actor, settings.cooldown_keyword);
     }
     return (std::max)(0.f, base);
   }
@@ -89,8 +91,9 @@ namespace features::true_flasks
   {
     auto base = settings.regeneration_mult_base;
     if (settings.regeneration_mult_keyword) {
-      const auto effects = core::utility::get_active_effects_by_keyword(actor, settings.regeneration_mult_keyword);
-      base += core::utility::get_magnitude_sum_of_active_effects(&effects);
+      // const auto effects = core::utility::get_active_effects_by_keyword(actor, settings.regeneration_mult_keyword);
+      // base += core::utility::get_magnitude_sum_of_active_effects(&effects);
+      base += core::utility::get_sum_of_active_effects_magnitude_with_keyword(actor, settings.regeneration_mult_keyword);
     }
     return (std::max)(0.f, base) / 100.0f;
   }
@@ -99,8 +102,9 @@ namespace features::true_flasks
   {
     auto base = settings.regeneration_mult_base;
     if (settings.regeneration_mult_keyword) {
-      const auto effects = core::utility::get_active_effects_by_keyword(actor, settings.regeneration_mult_keyword);
-      base += core::utility::get_magnitude_sum_of_active_effects(&effects);
+      // const auto effects = core::utility::get_active_effects_by_keyword(actor, settings.regeneration_mult_keyword);
+      // base += core::utility::get_magnitude_sum_of_active_effects(&effects);
+      base += core::utility::get_sum_of_active_effects_magnitude_with_keyword(actor, settings.regeneration_mult_keyword);
     }
     return (std::max)(0.f, base);
   }
@@ -137,6 +141,29 @@ namespace features::true_flasks
 
   // Forward declaration needed because api_get_current_slots is defined later
   export auto api_get_current_slots(RE::Actor* actor, const flask_type type) -> int;
+  
+  bool consume_flask_slot(const flask_type type, RE::Actor* actor)
+  {
+    if (!actor) {
+      return false;
+    }
+    
+    auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(actor->GetFormID());
+    const auto settings = get_settings(config::config_manager::get_singleton(), type);
+    
+    const auto max_slots = calculate_max_slots(actor, *settings);
+    const auto cooldown = calculate_cooldown(actor, *settings);
+
+    auto flasks = get_flasks_array(actor_data, type);
+
+    if (try_use_flask(flasks, cooldown, max_slots)) {
+      logger::info("Flask used: type {}, cooldown {:.1f}, slots {}/{}", static_cast<int>(type), cooldown,
+                   api_get_current_slots(actor, type), max_slots);
+      return true;
+    }
+    
+    return false;
+  }
 
   export bool drink_potion(const core::hooks_ctx::on_actor_drink_potion& ctx)
   {
@@ -174,18 +201,11 @@ namespace features::true_flasks
       logger::info("Anti-spam blocked drink for actor {:08X}", ctx.actor->GetFormID());
       return false;
     }
-
-    const auto max_slots = calculate_max_slots(ctx.actor, *settings);
-    const auto cooldown = calculate_cooldown(ctx.actor, *settings);
-
-    auto flasks = get_flasks_array(actor_data, type);
-
-    if (try_use_flask(flasks, cooldown, max_slots)) {
+    
+    if (consume_flask_slot(type, ctx.actor)) {
       if (settings->anti_spam) {
         actor_data.anti_spam_durations[static_cast<int>(type)] = settings->anti_spam_delay;
       }
-      logger::info("Flask used: type {}, cooldown {:.1f}, slots {}/{}", static_cast<int>(type), cooldown,
-                   api_get_current_slots(ctx.actor, type), max_slots);
       return true;
     }
 
@@ -358,10 +378,15 @@ namespace features::true_flasks
     if (!flasks) return;
 
     const int limit = (std::min)(max_slots, core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE);
+    
+    const bool is_restore_flask = amount < 0;
 
     if (all_slots) {
       for (const int i : std::views::iota(0, limit)) {
-        if (flasks[i].cooldown_current > 0.f) {
+        
+        if (flasks[i].cooldown_current > 0.f && is_restore_flask) {
+          flasks[i].cooldown_current = (std::max)(0.f, flasks[i].cooldown_current + amount);
+        } else {
           flasks[i].cooldown_current = (std::max)(0.f, flasks[i].cooldown_current + amount);
         }
       }
@@ -372,7 +397,12 @@ namespace features::true_flasks
       float min_cd = -1.f;
 
       for (const int i : std::views::iota(0, limit)) {
-        if (flasks[i].cooldown_current > 0.f) {
+        if (flasks[i].cooldown_current > 0.f && is_restore_flask) {
+          if (min_cd < 0.f || flasks[i].cooldown_current < min_cd) {
+            min_cd = flasks[i].cooldown_current;
+            nearest_idx = i;
+          }
+        } else {
           if (min_cd < 0.f || flasks[i].cooldown_current < min_cd) {
             min_cd = flasks[i].cooldown_current;
             nearest_idx = i;
@@ -455,6 +485,12 @@ namespace features::true_flasks
     if (!actor && static_cast<int>(type) < core::actors_cache::cache_data::actor_data::FLASK_TYPE_SIZE) return;
     auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(actor->GetFormID());
     actor_data.failed_drink_types[static_cast<int>(type)] = true;
+  }
+  
+  export auto api_consume_flask_slot(RE::Actor* actor, const flask_type type) -> bool
+  {
+    if (!actor && static_cast<int>(type) < core::actors_cache::cache_data::actor_data::FLASK_TYPE_SIZE) return false;
+    return consume_flask_slot(type, actor);
   }
 
   export auto api_get_flask_settings(const flask_type type) -> std::optional<TrueFlasksAPI::FlaskSettings>
