@@ -1,4 +1,4 @@
-﻿module;
+module;
 
 #include <map>
 #include "API/TrueFlasksAPI.h"
@@ -61,18 +61,33 @@ namespace core::actors_cache
         }
 
         auto update_flasks = [](flask_cooldown* flasks, const float delta, const bool parallel) {
-          for (const int i : std::views::iota(0, FLASK_ARRAY_SIZE)) {
-            if (flasks[i].cooldown_current > 0.f) {
-              flasks[i].cooldown_current -= delta;
-              if (flasks[i].cooldown_current < 0.f) {
-                flasks[i].cooldown_current = 0.f;
+          if (parallel) {
+            for (const int i : std::views::iota(0, FLASK_ARRAY_SIZE)) {
+              if (flasks[i].cooldown_current > 0.f) {
+                flasks[i].cooldown_current -= delta;
+                if (flasks[i].cooldown_current < 0.f) {
+                  flasks[i].cooldown_current = 0.f;
+                }
               }
-              if (!parallel) {
-                return;
+            }
+          } else {
+            int min_index = -1;
+            for (const int i : std::views::iota(0, FLASK_ARRAY_SIZE)) {
+              if (flasks[i].cooldown_current > 0.f) {
+                if (min_index == -1 || flasks[i].cooldown_current < flasks[min_index].cooldown_current) {
+                  min_index = i;
+                }
+              }
+            }
+            if (min_index != -1) {
+              flasks[min_index].cooldown_current -= delta;
+              if (flasks[min_index].cooldown_current < 0.f) {
+                flasks[min_index].cooldown_current = 0.f;
               }
             }
           }
         };
+
 
         update_flasks(flasks_health, delta_data.delta_health, delta_data.parallel_health);
         update_flasks(flasks_stamina, delta_data.delta_stamina, delta_data.parallel_stamina);
