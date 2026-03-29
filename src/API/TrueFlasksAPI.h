@@ -177,8 +177,11 @@ namespace TrueFlasksAPI
     /// </summary>
     /// <param name="actor">The target actor.</param>
     /// <param name="type">The flask type.</param>
+    /// <param name="count">The number of slots to consume.</param>
     /// <returns>True if a slot was successfully consumed, false otherwise (e.g., no slots available).</returns>
-    virtual bool ConsumeFlaskSlot(RE::Actor* actor, FlaskType type) noexcept = 0;
+    virtual bool ConsumeFlaskSlot(RE::Actor* actor, FlaskType type, const int count) noexcept = 0;
+    
+    virtual bool RestoreFlaskSlot(RE::Actor* actor, FlaskType type, const int count) noexcept = 0;
   };
 
   typedef void* (*_RequestPluginAPI)(const InterfaceVersion interfaceVersion);

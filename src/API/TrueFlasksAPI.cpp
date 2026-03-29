@@ -77,9 +77,14 @@ namespace api
       return APIResult::OK;
     }
     
-    bool ConsumeFlaskSlot(RE::Actor* actor, FlaskType type) noexcept override
+    bool ConsumeFlaskSlot(RE::Actor* actor, FlaskType type, const int count) noexcept override
     {
-      return features::true_flasks::api_consume_flask_slot(actor, static_cast<features::true_flasks::flask_type>(type));
+      return features::true_flasks::api_consume_flask_slot(actor, static_cast<features::true_flasks::flask_type>(type), count);
+    }
+    
+    bool RestoreFlaskSlot(RE::Actor* actor, FlaskType type, const int count) noexcept override
+    {
+      return features::true_flasks::api_restore_flask_slot(actor, static_cast<features::true_flasks::flask_type>(type), count);
     }
     
   };

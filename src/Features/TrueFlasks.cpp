@@ -142,7 +142,30 @@ namespace features::true_flasks
   // Forward declaration needed because api_get_current_slots is defined later
   export auto api_get_current_slots(RE::Actor* actor, const flask_type type) -> int;
   
-  bool consume_flask_slot(const flask_type type, RE::Actor* actor)
+  bool consume_flask_slot(const flask_type type, RE::Actor* actor, const int count)
+  {
+    if (!actor) {
+      return false;
+    }
+    
+    auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(actor->GetFormID());
+    const auto settings = get_settings(config::config_manager::get_singleton(), type);
+    
+    const auto max_slots = calculate_max_slots(actor, *settings);
+    const auto cooldown = calculate_cooldown(actor, *settings);
+
+    auto flasks = get_flasks_array(actor_data, type);
+
+    if (try_use_flask(flasks, cooldown, max_slots)) {
+      logger::info("Flask used: type {}, cooldown {:.1f}, slots {}/{}", static_cast<int>(type), cooldown,
+                   api_get_current_slots(actor, type), max_slots);
+      return true;
+    }
+    
+    return false;
+  }
+  
+  bool restore_flask_slot(const flask_type type, RE::Actor* actor, const int count)
   {
     if (!actor) {
       return false;
@@ -211,7 +234,7 @@ namespace features::true_flasks
 
     if (is_player) {
       if (!settings->notify.empty()) {
-        RE::DebugNotification(settings->notify.c_str());
+        RE::SendHUDMessage::ShowHUDMessage(settings->notify.c_str());
       }
       logger::info("Player fail drink flask type -> {}", static_cast<int>(type));
       if (settings->fail_audio && settings->fail_audio_form) {
@@ -487,10 +510,16 @@ namespace features::true_flasks
     actor_data.failed_drink_types[static_cast<int>(type)] = true;
   }
   
-  export auto api_consume_flask_slot(RE::Actor* actor, const flask_type type) -> bool
+  export auto api_consume_flask_slot(RE::Actor* actor, const flask_type type, const int count) -> bool
   {
     if (!actor && static_cast<int>(type) < core::actors_cache::cache_data::actor_data::FLASK_TYPE_SIZE) return false;
-    return consume_flask_slot(type, actor);
+    return consume_flask_slot(type, actor, std::abs(count));
+  }
+  
+  export auto api_restore_flask_slot(RE::Actor* actor, const flask_type type, const int count) -> bool
+  {
+    if (!actor && static_cast<int>(type) < core::actors_cache::cache_data::actor_data::FLASK_TYPE_SIZE) return false;
+    return restore_flask_slot(type, actor, std::abs(count));
   }
 
   export auto api_get_flask_settings(const flask_type type) -> std::optional<TrueFlasksAPI::FlaskSettings>
