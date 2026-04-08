@@ -476,79 +476,149 @@ namespace config
       logger::info("Configuration loaded successfully.");
     }
 
-    // Функция для сохранения с сохранением комментариев
+    [[nodiscard]] auto try_parse_section_name(const std::string& line) const
+      -> std::optional<std::string>
+    {
+      const auto trimmed = core::utility::strings::trim(line);
+      if (trimmed.size() < 3 || trimmed.front() != '[')
+        return std::nullopt;
+
+      const auto end_pos = trimmed.find(']');
+      if (end_pos == std::string::npos || end_pos <= 1)
+        return std::nullopt;
+
+      return core::utility::strings::trim(trimmed.substr(1, end_pos - 1));
+    }
+
+    [[nodiscard]] auto is_key_value_line(const std::string& line) const -> bool
+    {
+      const auto trimmed = core::utility::strings::trim(line);
+      if (trimmed.empty() || trimmed.front() == ';' || trimmed.front() == '[')
+        return false;
+
+      return line.find('=') != std::string::npos;
+    }
+
+    auto rewrite_key_value_line(const std::string& line,
+                                const std::string& section,
+                                const mINI::INIStructure& data) const
+      -> std::string
+    {
+      if (!data.has(section))
+        return line;
+
+      const auto eq_pos = line.find('=');
+      if (eq_pos == std::string::npos)
+        return line;
+
+      const auto key = core::utility::strings::trim(line.substr(0, eq_pos));
+      if (key.empty() || !data.get(section).has(key))
+        return line;
+
+      auto value_start = eq_pos + 1;
+      while (value_start < line.size() &&
+             (line[value_start] == ' ' || line[value_start] == '\t')) {
+        value_start++;
+      }
+
+      const auto comment_pos = line.find(';', value_start);
+      const auto prefix = line.substr(0, value_start);
+      std::string comment;
+      if (comment_pos != std::string::npos) {
+        auto comment_start = comment_pos;
+        while (comment_start > value_start &&
+               (line[comment_start - 1] == ' ' || line[comment_start - 1] == '\t')) {
+          comment_start--;
+        }
+        comment = line.substr(comment_start);
+      }
+
+      return prefix + data.get(section).get(key) + comment;
+    }
+
+    void append_missing_keys_for_section(std::vector<std::string>& output,
+                                         const std::string& section,
+                                         const mINI::INIStructure& original,
+                                         const mINI::INIStructure& data) const
+    {
+      if (section.empty() || !original.has(section) || !data.has(section))
+        return;
+
+      const auto original_section = original.get(section);
+      const auto data_section = data.get(section);
+      auto insertion_pos = output.size();
+      while (insertion_pos > 0) {
+        const auto trimmed = core::utility::strings::trim(output[insertion_pos - 1]);
+        if (trimmed.empty() || trimmed.front() == ';') {
+          insertion_pos--;
+          continue;
+        }
+        break;
+      }
+
+      std::vector<std::string> missing_lines;
+      for (const auto& [key, value] : data_section) {
+        if (!original_section.has(key)) {
+          missing_lines.emplace_back(key + " = " + value);
+        }
+      }
+
+      output.insert(output.begin() + static_cast<std::ptrdiff_t>(insertion_pos),
+                    missing_lines.begin(),
+                    missing_lines.end());
+    }
+
     bool save_ini_preserving_comments(const std::filesystem::path& path,
-                                      mINI::INIStructure& data)
+                                      const mINI::INIStructure& original,
+                                      const mINI::INIStructure& data) const
     {
       std::ifstream file_in(path);
       if (!file_in.is_open())
         return false;
 
-      std::vector<std::string> lines;
+      std::vector<std::string> output;
       std::string line;
       std::string current_section;
 
-      // Регулярка для поиска секций: [SectionName]
-      std::regex section_regex(R"(^\s*\[([^\]]+)\])");
-      // Регулярка для поиска ключей: Key = Value (и захват комментария после ;)
-      // Группа 1: Всё до значения (ключ + =)
-      // Группа 2: Значение (до ; или конца строки)
-      // Группа 3: Остаток строки (комментарий)
-      std::regex key_regex(R"(^(\s*[^=;]+\s*=\s*)([^;]*)(.*))");
-
-      std::smatch match;
-
       while (std::getline(file_in, line)) {
-        // 1. Проверяем, не началась ли новая секция
-        if (std::regex_search(line, match, section_regex)) {
-          current_section = match[1];
-          lines.push_back(line);
+        if (const auto section = try_parse_section_name(line); section.has_value()) {
+          append_missing_keys_for_section(output, current_section, original, data);
+          current_section = *section;
+          output.push_back(line);
           continue;
         }
 
-        // 2. Если мы внутри секции, ищем ключи
-        if (!current_section.empty() &&
-            std::regex_search(line, match, key_regex)) {
-          std::string full_part_before = match[1].str();
-          std::string key_part =
-            full_part_before.substr(0, full_part_before.find('='));
-          std::string key = core::utility::strings::trim(key_part);
-
-          std::string comments =
-            match[3].str(); // Сохраняем комментарии в конце строки
-
-          // Если такой ключ есть в наших новых данных
-          if (data.has(current_section) && data[current_section].has(key)) {
-            std::string new_value = data[current_section][key];
-
-            // Формируем новую строку: "Ключ = " + "НовоеЗначение" + " ;
-            // Комментарий"
-            std::string new_line = match[1].str() + new_value + comments;
-            lines.push_back(new_line);
-
-            // (Опционально) Можно помечать ключ как записанный, чтобы потом
-            // добавить новые, если их не было в файле. Но для простого конфига
-            // это часто лишнее.
-          }
-          else {
-            // Если ключа нет в новых данных (или удален), оставляем как есть
-            lines.push_back(line);
-          }
+        if (!current_section.empty() && is_key_value_line(line)) {
+          output.push_back(rewrite_key_value_line(line, current_section, data));
+          continue;
         }
-        else {
-          // Комментарии и пустые строки просто копируем
-          lines.push_back(line);
-        }
+
+        output.push_back(line);
       }
       file_in.close();
 
-      // 3. Записываем обновленные строки обратно в файл
+      append_missing_keys_for_section(output, current_section, original, data);
+
+      for (const auto& [section, collection] : data) {
+        if (original.has(section))
+          continue;
+
+        if (!output.empty() && !output.back().empty()) {
+          output.emplace_back();
+        }
+
+        output.emplace_back("[" + section + "]");
+        for (const auto& [key, value] : collection) {
+          output.emplace_back(key + " = " + value);
+        }
+      }
+
       std::ofstream file_out(path);
       if (!file_out.is_open())
         return false;
 
-      for (const auto& l : lines) {
-        file_out << l << "\n";
+      for (const auto& out_line : output) {
+        file_out << out_line << "\n";
       }
 
       return true;
@@ -558,25 +628,23 @@ namespace config
     {
       std::lock_guard<std::mutex> lock(mutex_);
 
-      // 1. Сначала подготавливаем данные как обычно
+      // Populate fresh values before deciding how to write the file.
       mINI::INIFile file(config_path_);
       mINI::INIStructure ini;
 
-      // Если файла нет, mINI должен его создать с нуля (тогда комментариев всё
-      // равно нет) Поэтому сначала проверяем чтение
+      // Read first so we know whether an existing file needs comment preservation.
       bool file_exists = file.read(ini);
+      const auto original_ini = ini;
 
       populate_ini(ini);
 
       bool success = false;
 
       if (file_exists) {
-        // 2. Если файл существует — используем наш умный метод сохранения
-        success = save_ini_preserving_comments(config_path_, ini);
+        success = save_ini_preserving_comments(config_path_, original_ini, ini);
       }
       else {
-        // 3. Если файла нет — создаем новый стандартным методом (комментариев
-        // терять не жалко)
+        // Create a fresh INI when there is nothing to preserve yet.
         success = file.generate(ini, true);
       }
 

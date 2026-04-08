@@ -48,7 +48,7 @@ namespace ui::skse_menu
       RenderTooltip("Notification message shown to the player when they cannot drink more of this flask.");
       
       if (ImGui::Checkbox("Enable Fail Audio", &settings.fail_audio)) changed = true;
-      RenderTooltip("If enable, play audio feedback when a flask fails to activate.");
+      RenderTooltip("If enabled, play audio feedback when a flask fails to activate.");
 
       if (ImGui::Checkbox("Parallel Cooldown", &settings.enable_parallel_cooldown)) changed = true;
       RenderTooltip("If true, all slots cool down simultaneously. If false, they cool down one by one.");
@@ -110,7 +110,7 @@ namespace ui::skse_menu
       RenderTooltip("Notification message shown to the player when they cannot drink more of this flask.");
       
       if (ImGui::Checkbox("Enable Fail Audio", &settings.fail_audio)) changed = true;
-      RenderTooltip("If enable, play audio feedback when a flask fails to activate.");
+      RenderTooltip("If enabled, play audio feedback when a flask fails to activate.");
 
       if (ImGui::Checkbox("Parallel Cooldown", &settings.enable_parallel_cooldown)) changed = true;
       RenderTooltip("If true, all slots cool down simultaneously. If false, they cool down one by one.");
@@ -134,7 +134,7 @@ namespace ui::skse_menu
       RenderTooltip("Base cooldown duration in seconds for one slot.");
 
       if (ImGui::Checkbox("Revert Exclusive", &settings.revert_exclusive)) changed = true;
-      RenderTooltip("If true, inverts the logic for the exclusive keyword (items WITH the keyword are NOT 'Other').");
+      RenderTooltip("If true, only items WITH the exclusive keyword are treated as 'Other'; otherwise only items WITHOUT it are.");
 
       if (changed) {
         config->save();
@@ -189,7 +189,7 @@ namespace ui::skse_menu
     RenderTooltip("Automatically hide the UI when flasks are full.");
     
     if (ImGui::Checkbox("Always Show In Combat", &config->prisma_widget.always_show_in_combat)) changed = true;
-    RenderTooltip("In combat all widget element always visible.");
+    RenderTooltip("If true, all widget elements remain visible in combat.");
 
     if (config->prisma_widget.enable) {
       if (ImGui::DragFloat("Global X", &config->prisma_widget.x, 0.001f, 0.00f, 1.0f, "%.3f")) changed = true;

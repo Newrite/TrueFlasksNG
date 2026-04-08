@@ -1,24 +1,11 @@
-// =========================================================
-// НАСТРОЙКИ ВИЗУАЛИЗАЦИИ
-// =========================================================
-
-// 0.0 - самый низ картинки SVG
-// 1.0 - самый верх картинки SVG
-
-// Уровень дна (откуда начинается жидкость)
+// Map the fill level to the visible region inside the flask SVG.
 const VISUAL_BOTTOM = 0.20;
-
-// Уровень горлышка (где жидкость должна остановиться при 100%)
 const VISUAL_TOP = 0.65;
 
-// Внутренний отступ из CSS (30px), из-за которого виджет не прижимался к краю
-// (Исправление координат)
+// Extra CSS padding used when anchoring the whole widget.
 const CSS_INTERNAL_PADDING = 60;
 
-// =========================================================
-
 const flasks = [
-    // Добавлено поле groupId для надежного поиска враппера (Исправление позиционирования)
     {id: 'flask-health', groupId: 'flask-group-health', counterId: 'flask-counter-health', type: 0, color: '#6a0020'},
     {
         id: 'flask-stamina',
@@ -34,6 +21,17 @@ const flasks = [
 const flaskElements = {};
 let globalSettings = {auto_hide: false, opacity: 1.0, always_show_in_combat: false};
 
+function getFlaskConfig(flaskType) {
+    return (flaskType === 0) ? globalSettings.health
+        : (flaskType === 1) ? globalSettings.stamina
+            : (flaskType === 2) ? globalSettings.magick
+                : globalSettings.other;
+}
+
+function getFlaskVisibleOpacity(flaskConfig) {
+    return String((flaskConfig && typeof flaskConfig.opacity === 'number') ? flaskConfig.opacity : 1);
+}
+
 function initFlask(item) {
     const obj = document.getElementById(item.id);
     if (!obj) return;
@@ -48,7 +46,7 @@ function initFlask(item) {
 
         const svgRoot = svgDoc.documentElement;
 
-        // Расширяем viewBox для эффектов
+        // Expand the viewBox so glow and overflow effects are not clipped.
         if (!svgRoot.hasAttribute('data-expanded')) {
             const originalVB = svgRoot.getAttribute('viewBox').split(' ').map(parseFloat);
             const padding = 80;
@@ -56,7 +54,6 @@ function initFlask(item) {
             svgRoot.setAttribute('data-expanded', 'true');
         }
 
-        // Стиль без transition (мгновенная реакция на проценты)
         if (!svgDoc.getElementById('flask-styles')) {
             const styleElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "style");
             styleElement.id = 'flask-styles';
@@ -64,7 +61,7 @@ function initFlask(item) {
                 #flask-fill-rect {
                     transform-origin: bottom;
                     transform-box: fill-box;
-                    transform: scaleY(0); 
+                    transform: scaleY(0);
                     will-change: transform;
                 }
             `;
@@ -72,7 +69,6 @@ function initFlask(item) {
         }
 
         const textElement = document.getElementById(item.counterId);
-        // Находим враппер надежно по ID группы (Исправление позиционирования)
         const wrapperElement = document.getElementById(item.groupId);
 
         flaskElements[item.type] = {
@@ -97,7 +93,6 @@ window.firstInitDom = () => {
     flasks.forEach(initFlask);
 }
 
-// === Настройки позиционирования ===
 window.setWidgetSettings = (settingsJson) => {
     try {
         const settings = JSON.parse(settingsJson);
@@ -111,8 +106,7 @@ window.setWidgetSettings = (settingsJson) => {
         if (!settings.enable) return;
 
         if (settings.anchor_all) {
-            // === ИСПРАВЛЕНИЕ КООРДИНАТ ===
-            // Вычитаем внутренний отступ CSS, умноженный на масштаб.
+            // Account for the internal CSS padding when anchoring the whole widget.
             const offset = CSS_INTERNAL_PADDING * settings.size;
 
             container.style.left = ((settings.x * window.innerWidth) - offset) + 'px';
@@ -121,24 +115,23 @@ window.setWidgetSettings = (settingsJson) => {
             container.style.opacity = settings.opacity;
 
             flasks.forEach(item => {
-                // Используем groupId для поиска
                 let wrapper = flaskElements[item.type]?.wrapper || document.getElementById(item.groupId);
 
                 if (wrapper) {
-                    const flaskSettings = (item.type === 0) ? settings.health : (item.type === 1) ? settings.stamina : (item.type === 2) ? settings.magick : settings.other;
+                    const flaskSettings = getFlaskConfig(item.type);
 
-                    // === ИСПРАВЛЕНИЕ ПОЗИЦИОНИРОВАНИЯ (Anchor All) ===
-                    // Агрессивно удаляем стили, чтобы вернуть управление CSS-классам (.flask-top и т.д.)
+                    // Clear per-flask positioning so CSS classes control layout again.
                     wrapper.style.removeProperty('left');
                     wrapper.style.removeProperty('top');
                     wrapper.style.removeProperty('transform');
                     wrapper.style.removeProperty('position');
 
-                    // Логика прозрачности с учетом auto_hide
                     if (!settings.auto_hide) {
-                        wrapper.style.opacity = (flaskSettings && flaskSettings.enabled === false) ? '0' : '1';
+                        wrapper.style.opacity = (flaskSettings && flaskSettings.enabled === false)
+                            ? '0'
+                            : getFlaskVisibleOpacity(flaskSettings);
                     } else {
-                        // Если авто-скрытие включено, но мы еще не знаем статус (инициализация), скрываем
+                        // Keep the flask hidden until the first data update resolves auto-hide state.
                         if (flaskElements[item.type] && flaskElements[item.type].maxSlots === -1) {
                             wrapper.style.opacity = '0';
                         }
@@ -146,7 +139,6 @@ window.setWidgetSettings = (settingsJson) => {
                 }
             });
         } else {
-            // Режим раздельного позиционирования
             container.style.left = '0px';
             container.style.top = '0px';
             container.style.transform = 'scale(1)';
@@ -161,7 +153,6 @@ window.setWidgetSettings = (settingsJson) => {
                     return;
                 }
 
-                // Применяем жесткие координаты
                 el.style.left = (s.x * window.innerWidth) + 'px';
                 el.style.top = (s.y * window.innerHeight) + 'px';
                 el.style.transform = `scale(${s.size})`;
@@ -183,7 +174,6 @@ window.setWidgetSettings = (settingsJson) => {
 window.setWidgetSettingsInit = (settingsJson) => setTimeout(() => window.setWidgetSettings(settingsJson), 1500);
 
 
-// === ГЛАВНАЯ ЛОГИКА ОБНОВЛЕНИЯ ===
 window.updateFlaskData = (args) => {
     if (!args) return;
 
@@ -207,18 +197,24 @@ window.updateFlaskData = (args) => {
     if (!el) return;
 
     el.maxSlots = maxSlots;
-    
-    if (!animationFill) {
-        fillPercent = 1.0;
+
+    const flaskConfig = getFlaskConfig(flaskType);
+    const visibleOpacity = getFlaskVisibleOpacity(flaskConfig);
+
+    if (flaskConfig && flaskConfig.enabled === false) {
+        if (el.wrapper) {
+            el.wrapper.style.transition = '';
+            el.wrapper.style.opacity = '0';
+        }
+        return;
     }
-    
-    if (animationFill && animationFillOnlyZero && count > 0) {
+
+    if (!animationFill) {
+        fillPercent = (count > 0 || fillPercent >= 1.0) ? 1.0 : 0.0;
+    } else if (animationFillOnlyZero && count > 0) {
         fillPercent = 1.0;
     }
 
-    // ---------------------------------------------------------
-    // 1. Визуализация заполнения (Mapping)
-    // ---------------------------------------------------------
     const visualRange = VISUAL_TOP - VISUAL_BOTTOM;
     const mappedScale = VISUAL_BOTTOM + (fillPercent * visualRange);
 
@@ -226,16 +222,10 @@ window.updateFlaskData = (args) => {
         el.fillRect.style.transform = `scaleY(${mappedScale})`;
     }
 
-    // ---------------------------------------------------------
-    // 2. Текст
-    // ---------------------------------------------------------
     if (el.text) {
         el.text.textContent = count > 0 ? count : "";
     }
 
-    // ---------------------------------------------------------
-    // 3. Свечение
-    // ---------------------------------------------------------
     let triggerGlow = shouldGlow;
 
     if (el.lastCount === -1) {
@@ -253,49 +243,41 @@ window.updateFlaskData = (args) => {
         el.object.classList.add('glowing');
     }
 
-    // ---------------------------------------------------------
-    // 4. Автоскрытие / Показ элемента
-    // ---------------------------------------------------------
     if (el.wrapper) {
-        let targetOpacity = '1';
+        let targetOpacity = visibleOpacity;
 
         const shouldShowDueToCombat = globalSettings.always_show_in_combat && in_combat;
 
         if (globalSettings.auto_hide && !shouldShowDueToCombat) {
-            // Скрываем, если полная фласка
+            // Hide full flasks when auto-hide is active.
             if (count >= maxSlots) {
                 targetOpacity = '0';
             } else {
-                targetOpacity = '1';
+                targetOpacity = visibleOpacity;
             }
             // Apply fade
             el.wrapper.style.transition = 'opacity 1.5s ease';
             el.wrapper.style.opacity = targetOpacity;
         } else {
-            // Если автоскрытие выключено, убеждаемся, что элемент видим (если он не выключен в настройках)
-            // Здесь мы доверяем тому, что setWidgetSettings уже задал правильную opacity
-            // Но если элемент был скрыт анимацией авто-скрытия, а потом настройку выключили "на лету",
-            // нужно вернуть ему видимость.
-            // Простейшая проверка: если стиль opacity 0 или пуст, делаем 1 (сброс)
+            // Remove stale auto-hide transition without forcing disabled flasks visible.
             if (el.wrapper.style.opacity === '0' && !el.wrapper.style.transition) {
-                // Оставляем как есть, возможно выключен через конфиг
             } else if (el.wrapper.style.transition) {
-                // Если осталась транзишн от авто-скрытия, убираем её и восстанавливаем
                 el.wrapper.style.transition = '';
-                el.wrapper.style.opacity = '1';
+                if (!flaskConfig || flaskConfig.enabled !== false) {
+                    el.wrapper.style.opacity = visibleOpacity;
+                }
             }
         }
     }
 };
 
-// === ФУНКЦИИ УПРАВЛЕНИЯ ВИДИМОСТЬЮ (TOP LEVEL) ===
 window.Hide = () => {
     document.body.style.transition = 'none';
     document.body.style.opacity = '0';
 };
 
 window.Show = () => {
-    // Принудительный пересчет стилей
+    // Force a reflow before starting the fade-in.
     void document.body.offsetWidth;
     document.body.style.transition = 'opacity 3s ease';
     document.body.style.opacity = '1';
@@ -344,13 +326,13 @@ window.addEventListener('load', function () {
                 try {
                     const doc = testObj.contentDocument;
                     if (!doc) {
-                        console.error("❌ ОШИБКА ДОСТУПА К SVG");
+                        console.error("SVG access failed.");
                         return;
                     } else {
-                        console.log("✅ Доступ к SVG есть.");
+                        console.log("SVG access OK.");
                     }
                 } catch (e) {
-                    console.error("Ошибка безопасности:", e);
+                    console.error("Security error:", e);
                 }
             }
 
@@ -397,16 +379,15 @@ window.addEventListener('load', function () {
             console.groupEnd();
         }, 500);
 
-        // Тест переключения режимов
         setTimeout(() => {
             window.setWidgetSettings(JSON.stringify({...mockSettings, enable: false}))
         }, 2500);
         setTimeout(() => {
             window.setWidgetSettings(JSON.stringify({...mockSettings, anchor_all: false}))
-        }, 3500); // Тест раздельного
+        }, 3500);
         setTimeout(() => {
             window.setWidgetSettings(JSON.stringify({...mockSettings, anchor_all: true}))
-        }, 5500); // Возврат к общему (проверка очистки стилей)
+        }, 5500);
         setTimeout(() => {
             window.setWidgetSettings(JSON.stringify({...mockSettings, enable: true}))
         }, 4500);

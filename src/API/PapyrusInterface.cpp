@@ -70,16 +70,16 @@ namespace papyrus
     api_play_flask_glow(actor, int_to_flask_type(type));
   }
   
-  bool ConsumeFlaskSlot(RE::StaticFunctionTag*, RE::Actor* actor, int type, const int count)
+  void ConsumeFlaskSlot(RE::StaticFunctionTag*, RE::Actor* actor, int type, const int count)
   {
-    if (!actor) return false;
-    return api_consume_flask_slot(actor, int_to_flask_type(type), count);
+    if (!actor) return;
+    api_consume_flask_slot(actor, int_to_flask_type(type), count);
   }
   
-  bool RestoreFlaskSlot(RE::StaticFunctionTag*, RE::Actor* actor, int type, const int count)
+  void RestoreFlaskSlot(RE::StaticFunctionTag*, RE::Actor* actor, int type, const int count)
   {
-    if (!actor) return false;
-    return api_restore_flask_slot(actor, int_to_flask_type(type), count);
+    if (!actor) return;
+    api_restore_flask_slot(actor, int_to_flask_type(type), count);
   }
 
   export bool Register(RE::BSScript::IVirtualMachine* vm)

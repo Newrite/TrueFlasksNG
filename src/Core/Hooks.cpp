@@ -76,7 +76,7 @@ namespace core::hooks
       return on_update_player_character_original(character, delta);
     }
 
-    // ExtraList может быть нуллом, т.к. далеко не все объекты несут в себе дополнительную рантайм информацию
+    // ExtraList may be null because many objects do not carry runtime extra data.
     static auto on_drink_potion(RE::Character* character, RE::AlchemyItem* potion,
                                 RE::ExtraDataList* extra_list) -> bool
     {

@@ -616,7 +616,8 @@ namespace core::utility::game
     sound.state = RE::BSSoundHandle::AssumedState::kPlaying;
 
     if (const auto manager = RE::BSAudioManager::GetSingleton()) {
-      if (!manager->BuildSoundDataFromDescriptor(sound, descriptor)) {
+      
+      if (!manager->GetSoundHandle(sound, descriptor)) {
         return false;
       }
 

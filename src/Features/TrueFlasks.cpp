@@ -22,6 +22,19 @@ namespace features::true_flasks
 {
   export using flask_type = TrueFlasksAPI::FlaskType;
 
+  constexpr int kFlaskTypeCount = core::actors_cache::cache_data::actor_data::FLASK_TYPE_SIZE;
+
+  bool is_valid_flask_type(const flask_type type)
+  {
+    const auto type_index = static_cast<int>(type);
+    return type_index >= 0 && type_index < kFlaskTypeCount;
+  }
+
+  int get_slot_limit(const int max_slots)
+  {
+    return (std::min)((std::max)(max_slots, 0), core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE);
+  }
+
   const config::flask_settings_base* get_settings(const config::config_manager* config, const flask_type type)
   {
     switch (type) {
@@ -109,22 +122,96 @@ namespace features::true_flasks
     return (std::max)(0.f, base);
   }
 
-  bool try_use_flask(core::actors_cache::cache_data::actor_data::flask_cooldown* flasks, const float cooldown_duration,
-                     int max_slots)
+  int count_available_flasks(core::actors_cache::cache_data::actor_data::flask_cooldown* flasks, const int max_slots)
   {
-    if (!flasks) return false;
+    if (!flasks) return 0;
 
-    if (max_slots > core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE)
-      max_slots = core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE;
+    int available = 0;
+    const int limit = get_slot_limit(max_slots);
 
-    for (const int i : std::views::iota(0, max_slots)) {
+    for (const int i : std::views::iota(0, limit)) {
+      if (flasks[i].cooldown_current <= 0.f) {
+        available++;
+      }
+    }
+
+    return available;
+  }
+
+  int count_recharging_flasks(core::actors_cache::cache_data::actor_data::flask_cooldown* flasks, const int max_slots)
+  {
+    if (!flasks) return 0;
+
+    int recharging = 0;
+    const int limit = get_slot_limit(max_slots);
+
+    for (const int i : std::views::iota(0, limit)) {
+      if (flasks[i].cooldown_current > 0.f) {
+        recharging++;
+      }
+    }
+
+    return recharging;
+  }
+
+  bool consume_flask_slots(core::actors_cache::cache_data::actor_data::flask_cooldown* flasks,
+                           const float cooldown_duration, const int max_slots, const int count)
+  {
+    if (!flasks || count <= 0) return false;
+
+    const int limit = get_slot_limit(max_slots);
+    if (limit <= 0 || count_available_flasks(flasks, limit) < count) {
+      return false;
+    }
+
+    int consumed = 0;
+    for (const int i : std::views::iota(0, limit)) {
       if (flasks[i].cooldown_current <= 0.f) {
         flasks[i].cooldown_start = cooldown_duration;
         flasks[i].cooldown_current = cooldown_duration;
-        return true;
+        consumed++;
+
+        if (consumed >= count) {
+          return true;
+        }
       }
     }
+
     return false;
+  }
+
+  bool restore_flask_slots(core::actors_cache::cache_data::actor_data::flask_cooldown* flasks, const int max_slots,
+                           const int count)
+  {
+    if (!flasks || count <= 0) return false;
+
+    const int limit = get_slot_limit(max_slots);
+    if (limit <= 0 || count_recharging_flasks(flasks, limit) < count) {
+      return false;
+    }
+
+    int restored = 0;
+    while (restored < count) {
+      int nearest_idx = -1;
+      float min_cd = -1.f;
+
+      for (const int i : std::views::iota(0, limit)) {
+        if (flasks[i].cooldown_current > 0.f && (min_cd < 0.f || flasks[i].cooldown_current < min_cd)) {
+          min_cd = flasks[i].cooldown_current;
+          nearest_idx = i;
+        }
+      }
+
+      if (nearest_idx < 0) {
+        return false;
+      }
+
+      flasks[nearest_idx].cooldown_start = 0.f;
+      flasks[nearest_idx].cooldown_current = 0.f;
+      restored++;
+    }
+
+    return true;
   }
 
   core::actors_cache::cache_data::actor_data::flask_cooldown* get_flasks_array(
@@ -144,20 +231,24 @@ namespace features::true_flasks
   
   bool consume_flask_slot(const flask_type type, RE::Actor* actor, const int count)
   {
-    if (!actor) {
+    if (!actor || !is_valid_flask_type(type) || count <= 0) {
       return false;
     }
     
     auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(actor->GetFormID());
     const auto settings = get_settings(config::config_manager::get_singleton(), type);
+    if (!settings) {
+      return false;
+    }
     
     const auto max_slots = calculate_max_slots(actor, *settings);
     const auto cooldown = calculate_cooldown(actor, *settings);
 
     auto flasks = get_flasks_array(actor_data, type);
 
-    if (try_use_flask(flasks, cooldown, max_slots)) {
-      logger::info("Flask used: type {}, cooldown {:.1f}, slots {}/{}", static_cast<int>(type), cooldown,
+    if (consume_flask_slots(flasks, cooldown, max_slots, count)) {
+      logger::info("Consumed {} flask slot(s): type {}, cooldown {:.1f}, slots {}/{}", count,
+                   static_cast<int>(type), cooldown,
                    api_get_current_slots(actor, type), max_slots);
       return true;
     }
@@ -167,20 +258,21 @@ namespace features::true_flasks
   
   bool restore_flask_slot(const flask_type type, RE::Actor* actor, const int count)
   {
-    if (!actor) {
+    if (!actor || !is_valid_flask_type(type) || count <= 0) {
       return false;
     }
     
     auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(actor->GetFormID());
     const auto settings = get_settings(config::config_manager::get_singleton(), type);
-    
-    const auto max_slots = calculate_max_slots(actor, *settings);
-    const auto cooldown = calculate_cooldown(actor, *settings);
+    if (!settings) {
+      return false;
+    }
 
+    const auto max_slots = calculate_max_slots(actor, *settings);
     auto flasks = get_flasks_array(actor_data, type);
 
-    if (try_use_flask(flasks, cooldown, max_slots)) {
-      logger::info("Flask used: type {}, cooldown {:.1f}, slots {}/{}", static_cast<int>(type), cooldown,
+    if (restore_flask_slots(flasks, max_slots, count)) {
+      logger::info("Restored {} flask slot(s): type {}, slots {}/{}", count, static_cast<int>(type),
                    api_get_current_slots(actor, type), max_slots);
       return true;
     }
@@ -225,7 +317,7 @@ namespace features::true_flasks
       return false;
     }
     
-    if (consume_flask_slot(type, ctx.actor)) {
+    if (consume_flask_slot(type, ctx.actor, 1)) {
       if (settings->anti_spam) {
         actor_data.anti_spam_durations[static_cast<int>(type)] = settings->anti_spam_delay;
       }
@@ -356,7 +448,7 @@ namespace features::true_flasks
     if (!flasks) return 0;
 
     int available = 0;
-    const int limit = (std::min)(max_slots, core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE);
+    const int limit = get_slot_limit(max_slots);
 
     for (const int i : std::views::iota(0, limit)) {
       if (flasks[i].cooldown_current <= 0.f) {
@@ -377,7 +469,7 @@ namespace features::true_flasks
     if (!flasks) return 0.f;
 
     float min_cd = -1.f;
-    const int limit = (std::min)(max_slots, core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE);
+    const int limit = get_slot_limit(max_slots);
 
     for (const int i : std::views::iota(0, limit)) {
       if (flasks[i].cooldown_current > 0.f) {
@@ -400,7 +492,7 @@ namespace features::true_flasks
 
     if (!flasks) return;
 
-    const int limit = (std::min)(max_slots, core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE);
+    const int limit = get_slot_limit(max_slots);
     
     const bool is_restore_flask = amount < 0;
 
@@ -460,7 +552,7 @@ namespace features::true_flasks
 
     int nearest_idx = -1;
     float min_cd = -1.f;
-    const int limit = (std::min)(max_slots, core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE);
+    const int limit = get_slot_limit(max_slots);
 
     for (const int i : std::views::iota(0, limit)) {
       if (flasks[i].cooldown_current > 0.f) {
@@ -482,43 +574,31 @@ namespace features::true_flasks
   export auto api_get_flask_info(RE::AlchemyItem* potion) -> std::pair<int, bool>
   {
     const auto config = config::config_manager::get_singleton();
-    auto type_opt = identify_flask_type(potion, config);
+    const auto type_opt = identify_flask_type(potion, config);
 
     if (!type_opt.has_value()) {
       return {-1, false};
     }
 
-    auto type = type_opt.value();
-    bool consumes_slot = true;
-
-    // Special logic for Other
-    if (type == flask_type::Other) {
-      const auto has_kw = config->flasks_other.exclusive_keyword && core::utility::try_form_has_keyword(
-                            potion, config->flasks_other.exclusive_keyword);
-      if (config->flasks_other.revert_exclusive == has_kw) {
-        consumes_slot = false;
-      }
-    }
-
-    return {static_cast<int>(type), consumes_slot};
+    return {static_cast<int>(type_opt.value()), true};
   }
   
   export auto api_play_flask_glow(RE::Actor* actor, const flask_type type) -> void
   {
-    if (!actor && static_cast<int>(type) < core::actors_cache::cache_data::actor_data::FLASK_TYPE_SIZE) return;
+    if (!actor || !is_valid_flask_type(type)) return;
     auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(actor->GetFormID());
     actor_data.failed_drink_types[static_cast<int>(type)] = true;
   }
   
   export auto api_consume_flask_slot(RE::Actor* actor, const flask_type type, const int count) -> bool
   {
-    if (!actor && static_cast<int>(type) < core::actors_cache::cache_data::actor_data::FLASK_TYPE_SIZE) return false;
+    if (!actor || !is_valid_flask_type(type)) return false;
     return consume_flask_slot(type, actor, std::abs(count));
   }
   
   export auto api_restore_flask_slot(RE::Actor* actor, const flask_type type, const int count) -> bool
   {
-    if (!actor && static_cast<int>(type) < core::actors_cache::cache_data::actor_data::FLASK_TYPE_SIZE) return false;
+    if (!actor || !is_valid_flask_type(type)) return false;
     return restore_flask_slot(type, actor, std::abs(count));
   }
 

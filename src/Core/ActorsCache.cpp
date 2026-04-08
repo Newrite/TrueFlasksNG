@@ -145,8 +145,8 @@ namespace core::actors_cache
           }
 
           for (size_t i = 0; i < size; ++i) {
-            RE::FormID form_id;
-            if (!a_interface->ReadRecordData(form_id)) {
+            RE::FormID saved_form_id;
+            if (!a_interface->ReadRecordData(saved_form_id)) {
               break;
             }
 
@@ -154,7 +154,12 @@ namespace core::actors_cache
             if (!a_interface->ReadRecordData(data)) {
               break;
             }
-            actors_cache_[form_id] = data;
+            
+            RE::FormID resolved_form_id;
+            if (!a_interface->ResolveFormID(saved_form_id, resolved_form_id)) {
+              continue;
+            }
+            actors_cache_[resolved_form_id] = data;
           }
         }
       }
