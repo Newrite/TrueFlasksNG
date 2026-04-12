@@ -224,6 +224,23 @@ namespace ui::skse_menu
     }
   }
 
+  void __stdcall render_config_actions()
+  {
+    if (ImGui::Button("Reload Configuration")) {
+      auto* config = config::config_manager::get_singleton();
+      const bool previous_prisma_enabled = config->prisma_widget.enable;
+
+      config->load();
+
+      if (previous_prisma_enabled != config->prisma_widget.enable) {
+        prisma::update_enable(config->prisma_widget.enable);
+      }
+
+      prisma::send_settings();
+    }
+    RenderTooltip("Reload TrueFlasksNG.ini from disk and refresh Prisma widget settings.");
+  }
+
   void render_inventory_settings(config::flask_settings& settings, bool& changed)
   {
     if (render_inventory_mode_combo("Inventory Mode", settings.inventory_mode_value)) changed = true;
@@ -468,6 +485,9 @@ namespace ui::skse_menu
 
     static constexpr auto main_title = "True Flasks NG";
     SKSEMenuFramework::SetSection(main_title);
+
+    static constexpr auto config_actions = "Configuration";
+    SKSEMenuFramework::AddSectionItem(config_actions, render_config_actions);
 
     static constexpr auto settings_title = "Flasks Settings";
     SKSEMenuFramework::AddSectionItem(settings_title, render_flasks_settings);

@@ -379,24 +379,24 @@ namespace config
       ini["PrismaWidget"]["AlwaysShowInCombat"] =
         prisma_widget.always_show_in_combat ? "1" : "0";
       ini["PrismaWidget"]["PrismaPositionX"] =
-        std::format("{:.2f}", prisma_widget.x);
+        std::format("{:.3f}", prisma_widget.x);
       ini["PrismaWidget"]["PrismaPositionY"] =
-        std::format("{:.2f}", prisma_widget.y);
+        std::format("{:.3f}", prisma_widget.y);
       ini["PrismaWidget"]["PrismaSize"] =
-        std::format("{:.2f}", prisma_widget.size);
+        std::format("{:.3f}", prisma_widget.size);
       ini["PrismaWidget"]["PrismaOpacity"] =
-        std::format("{:.2f}", prisma_widget.opacity);
+        std::format("{:.3f}", prisma_widget.opacity);
       ini["PrismaWidget"]["PrismaAnchorAllElements"] =
         prisma_widget.anchor_all_elements ? "1" : "0";
 
       auto write_prisma_flask = [&](const std::string& prefix,
                                     const std::string& type,
                                     const prisma_flask_widget_settings& s) {
-        ini["PrismaWidget"][prefix + "X"] = std::format("{:.2f}", s.x);
-        ini["PrismaWidget"][prefix + "Y"] = std::format("{:.2f}", s.y);
-        ini["PrismaWidget"][prefix + "Size"] = std::format("{:.2f}", s.size);
+        ini["PrismaWidget"][prefix + "X"] = std::format("{:.3f}", s.x);
+        ini["PrismaWidget"][prefix + "Y"] = std::format("{:.3f}", s.y);
+        ini["PrismaWidget"][prefix + "Size"] = std::format("{:.3f}", s.size);
         ini["PrismaWidget"][prefix + "Opacity"] =
-          std::format("{:.2f}", s.opacity);
+          std::format("{:.3f}", s.opacity);
 
         ini["PrismaWidget"]["PrismaFlasksFillAnimation" + type] =
           s.fill_animation ? "1" : "0";
@@ -731,11 +731,4 @@ namespace config
     }
   };
 
-  export void
-  on_menu_event(const events::events_ctx::process_event_menu_ctx& ctx)
-  {
-    if (!ctx.is_opening && ctx.menu_name == RE::JournalMenu::MENU_NAME) {
-      config_manager::get_singleton()->load();
-    }
-  }
 } // namespace config
