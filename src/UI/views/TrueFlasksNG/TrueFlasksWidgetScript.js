@@ -20,6 +20,7 @@ const flasks = [
 
 const flaskElements = {};
 let globalSettings = {auto_hide: false, opacity: 1.0, always_show_in_combat: false};
+let currentCustomFont = '';
 
 function getFlaskConfig(flaskType) {
     return (flaskType === 0) ? globalSettings.health
@@ -172,6 +173,26 @@ window.setWidgetSettings = (settingsJson) => {
 };
 
 window.setWidgetSettingsInit = (settingsJson) => setTimeout(() => window.setWidgetSettings(settingsJson), 1500);
+
+window.setWidgetFont = async (fontFileName) => {
+    if (!fontFileName || typeof fontFileName !== 'string' || fontFileName === currentCustomFont) {
+        return;
+    }
+
+    try {
+        const fontUrl = encodeURI(`font/${fontFileName}`);
+        const fontFace = new FontFace('TrueFlasksWidgetCustom', `url("${fontUrl}")`);
+        await fontFace.load();
+        document.fonts.add(fontFace);
+        document.documentElement.style.setProperty(
+            '--flask-counter-font',
+            '"TrueFlasksWidgetCustom", "Impact", "Bahnschrift", sans-serif'
+        );
+        currentCustomFont = fontFileName;
+    } catch (e) {
+        console.warn(`Failed to load widget font: ${fontFileName}`, e);
+    }
+};
 
 
 window.updateFlaskData = (args) => {

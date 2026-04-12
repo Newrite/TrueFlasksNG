@@ -2,6 +2,7 @@
 
 #include "library/PrismaUI_API.h"
 #include "API/TrueFlasksAPI.h"
+#include <filesystem>
 
 export module TrueFlasks.UI.Prisma;
 
@@ -66,6 +67,64 @@ namespace ui::prisma
     return api && view && api->IsValid(view);
   }
 
+  auto find_custom_font_filename() -> std::optional<std::string>
+  {
+    const auto has_ttf_extension = [](const std::filesystem::path& path) {
+      auto extension = path.extension().string();
+      std::ranges::transform(extension, extension.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+      });
+      return extension == ".ttf";
+    };
+
+    const auto collect_font_candidates = [&](const std::filesystem::path& directory) {
+      std::vector<std::filesystem::path> fonts;
+      if (!std::filesystem::exists(directory) || !std::filesystem::is_directory(directory)) {
+        return fonts;
+      }
+
+      for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+        if (entry.is_regular_file() && has_ttf_extension(entry.path())) {
+          fonts.push_back(entry.path());
+        }
+      }
+
+      std::ranges::sort(fonts);
+      return fonts;
+    };
+
+    const auto candidates = std::array{
+      std::filesystem::path{"Data/PrismaUI/views/TrueFlasksNG/font"},
+    };
+
+    for (const auto& directory : candidates) {
+      const auto fonts = collect_font_candidates(directory);
+      if (!fonts.empty()) {
+        logger::info("Using Prisma widget font: {}", fonts.front().filename().string());
+        return fonts.front().filename().string();
+      }
+    }
+
+    logger::info("No custom Prisma widget font found, using default font stack.");
+    return std::nullopt;
+  }
+
+  void send_font()
+  {
+    auto api = core::mods_api_repository::get_prisma_ui();
+    auto& view = get_view_ref();
+    if (!is_view_usable(api, view)) {
+      return;
+    }
+
+    const auto font_filename = find_custom_font_filename();
+    if (!font_filename.has_value()) {
+      return;
+    }
+
+    api->InteropCall(view, "setWidgetFont", font_filename->c_str());
+  }
+
   export void send_settings(const bool init = false)
   {
     auto api = core::mods_api_repository::get_prisma_ui();
@@ -123,6 +182,7 @@ namespace ui::prisma
 
     auto api = core::mods_api_repository::get_prisma_ui();
     if (api) {
+      send_font();
       send_settings(true);
       view_init = true;
     }

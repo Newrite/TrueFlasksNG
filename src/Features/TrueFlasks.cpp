@@ -33,6 +33,15 @@ namespace features::true_flasks
   using effect_flag = RE::EffectSetting::EffectSettingData::Flag;
   using effect_archetype = RE::EffectSetting::Archetype;
 
+  struct pending_inventory_drink
+  {
+    RE::FormID actor_id{0};
+    RE::FormID potion_id{0};
+    bool active{false};
+  };
+
+  thread_local pending_inventory_drink g_pending_inventory_drink{};
+
   bool is_valid_flask_type(const flask_type type)
   {
     const auto type_index = static_cast<int>(type);
@@ -42,6 +51,28 @@ namespace features::true_flasks
   int get_slot_limit(const int max_slots)
   {
     return (std::min)((std::max)(max_slots, 0), kFlaskMaxCount);
+  }
+
+  bool is_valid_inventory_use_potion(RE::AlchemyItem* potion, const config::flask_settings_base& settings,
+                                     const flask_type type);
+  bool is_valid_inventory_deposit_potion(RE::AlchemyItem* potion, const config::flask_settings_base& settings);
+  RE::AlchemyItem* get_selected_inventory_potion(RE::Actor* actor, const config::flask_settings_base& settings,
+                                                 const flask_type type, const bool for_deposit);
+  bool consume_pending_inventory_drink(RE::Actor* actor, const RE::AlchemyItem* potion);
+
+  int get_actual_item_count(RE::Actor* actor, RE::AlchemyItem* potion, const int fallback_count)
+  {
+    if (!actor || !potion) {
+      return 0;
+    }
+
+    if (actor->IsPlayerRef()) {
+      if (auto* player = RE::PlayerCharacter::GetSingleton()) {
+        return player->GetItemCount(potion);
+      }
+    }
+
+    return fallback_count;
   }
 
   const config::flask_settings_base* get_settings(const config::config_manager* config, const flask_type type)
@@ -147,7 +178,7 @@ namespace features::true_flasks
     auto invChanges = a_container->GetInventoryChanges();
     if (invChanges && invChanges->entryList) {
       for (auto& entry : *invChanges->entryList) {
-        if (entry && entry->object && entry->object->GetFormType() == RE::FormType::AlchemyItem && try_potion_has_keyword(entry->object->As<RE::AlchemyItem>, keyword)) {
+        if (entry && entry->object && entry->object->GetFormType() == RE::FormType::AlchemyItem && try_potion_has_keyword(entry->object->As<RE::AlchemyItem>(), keyword)) {
           if (entry->IsLeveled()) {
             return entry->countDelta > 0 ? entry->countDelta : 0;
           } else {
@@ -161,7 +192,7 @@ namespace features::true_flasks
     auto container = a_container->GetContainer();
     if (container) {
       container->ForEachContainerObject([&](RE::ContainerObject& a_entry) {
-        if (a_entry.obj && a_entry.obj->GetFormType() == RE::FormType::AlchemyItem && try_potion_has_keyword(a_entry.obj->As<RE::AlchemyItem>, keyword)) {
+        if (a_entry.obj && a_entry.obj->GetFormType() == RE::FormType::AlchemyItem && try_potion_has_keyword(a_entry.obj->As<RE::AlchemyItem>(), keyword)) {
           iResult += a_entry.count;
           return RE::BSContainer::ForEachResult::kStop;
         }
@@ -177,15 +208,37 @@ namespace features::true_flasks
     if (!is_in_inventory_mode(actor, type)) {
       return 0;
     }
-    
-    return get_potion_count_with_keyword(actor, settings.inventory_keyword);
+
+    int count = 0;
+    const auto inventory = actor->GetInventory([](RE::TESBoundObject& object) {
+      return object.GetFormType() == RE::FormType::AlchemyItem;
+    });
+
+    for (const auto& [item, inv_data] : inventory) {
+      const auto& [item_count, entry] = inv_data;
+      if (item_count <= 0 || !entry) {
+        continue;
+      }
+
+      auto* potion = item ? item->As<RE::AlchemyItem>() : nullptr;
+      const auto actual_count = get_actual_item_count(actor, potion, item_count);
+      if (actual_count <= 0) {
+        continue;
+      }
+
+      if (is_valid_inventory_use_potion(potion, settings, type)) {
+        count += actual_count;
+      }
+    }
+
+    return count;
   }
 
   int calculate_max_slots(RE::Actor* actor, const config::flask_settings_base& settings, const flask_type type)
   {
     
     if (is_in_inventory_mod_use(actor, type)) {
-      return kFlaskMaxCount;
+      return get_potions_count(actor, settings, type);
     }
     
     auto base = static_cast<float>(settings.cap_base);
@@ -238,7 +291,7 @@ namespace features::true_flasks
     const int limit = get_slot_limit(max_slots);
     if (is_in_inventory_mod_use(actor, type)) {
       auto settings = get_settings(config::config_manager::get_singleton(), type);
-      auto potion_count = get_potion_count_with_keyword(actor, settings->inventory_keyword);
+      auto potion_count = get_potions_count(actor, *settings, type);
       if (potion_count > limit) {
         return limit;
       }
@@ -281,9 +334,23 @@ namespace features::true_flasks
     }
     
     if (is_in_inventory_mod_use(actor, type)) {
-      auto settings = get_settings(config::config_manager::get_singleton(), type);
-      auto object = core::utility::game::get_object_in_inventory_by_keyword(actor, settings->inventory_keyword, RE::FormType::AlchemyItem);
-      return object && actor->DrinkPotion(object->As<RE::AlchemyItem>, nullptr);
+      const auto settings = get_settings(config::config_manager::get_singleton(), type);
+      auto* potion = get_selected_inventory_potion(actor, *settings, type, false);
+      if (!potion) {
+        return false;
+      }
+
+      g_pending_inventory_drink = {
+        .actor_id = actor->GetFormID(),
+        .potion_id = potion->GetFormID(),
+        .active = true
+      };
+
+      const auto drank = actor->DrinkPotion(potion, nullptr);
+      if (g_pending_inventory_drink.active) {
+        g_pending_inventory_drink.active = false;
+      }
+      return drank;
     }
 
     int consumed = 0;
@@ -354,20 +421,52 @@ namespace features::true_flasks
   
   auto get_potion_max_magnitude_with_keyword(RE::AlchemyItem* potion, const RE::BGSKeyword* keyword) -> float
   {
-    auto result = -1.f;
+    auto result = 0.f;
+    auto found = false;
     if (!potion || !keyword) {
-      return result;
+      return 0.f;
     }
     
     for (const auto effect : potion->effects) {
-      if (effect && effect->baseEffect && effect->baseEffect->HasKeyword(keyword) && effect->GetMagnitude() > result) {
-        if (effect->baseEffect->data.flags.any(effect_flag::kRecover)) {
-          result = effect->GetMagnitude();
-        }
+      if (!effect || !effect->baseEffect || !effect->baseEffect->HasKeyword(keyword)) {
+        continue;
       }
+
+      const auto& data = effect->baseEffect->data;
+      if (!data.flags.any(effect_flag::kRecover) || data.flags.any(effect_flag::kDetrimental)) {
+        continue;
+      }
+
+      found = true;
+      result = (std::max)(result, effect->GetMagnitude());
     }
     
-    return result;
+    return found ? result : 0.f;
+  }
+
+  auto get_potion_restore_count_with_keyword(RE::AlchemyItem* potion, const RE::BGSKeyword* keyword) -> int
+  {
+    if (!potion || !keyword) {
+      return 0;
+    }
+
+    auto magnitude = get_potion_max_magnitude_with_keyword(potion, keyword);
+    if (magnitude > 0.f) {
+      return (std::max)(1, static_cast<int>(magnitude));
+    }
+
+    for (const auto effect : potion->effects) {
+      if (!effect || !effect->baseEffect || !effect->baseEffect->HasKeyword(keyword)) {
+        continue;
+      }
+
+      const auto& data = effect->baseEffect->data;
+      if (data.flags.any(effect_flag::kRecover) && !data.flags.any(effect_flag::kDetrimental)) {
+        return 1;
+      }
+    }
+
+    return 0;
   }
   
   auto get_av_by_flask_type(const flask_type type) -> RE::ActorValue
@@ -391,11 +490,7 @@ namespace features::true_flasks
     if (archetype == effect_archetype::kValueModifier && data.primaryAV == av) {
       result = effect->GetMagnitude();
     }
-    
-    if (archetype == effect_archetype::kPeakValueModifier && data.primaryAV == av) {
-      result = effect->GetMagnitude();
-    }
-    
+
     if (archetype == effect_archetype::kDualValueModifier) {
       if (data.primaryAV == av) {
         result = effect->GetMagnitude();
@@ -419,7 +514,7 @@ namespace features::true_flasks
     for (const auto effect : potion->effects) {
       if (effect && effect->baseEffect) {
         auto& data = effect->baseEffect->data;
-        if (data.flags.any(effect_flag::kRecover) && !data.flags.any(effect_flag::kDetrimental)) {
+        if (!data.flags.any(effect_flag::kRecover) && !data.flags.any(effect_flag::kDetrimental)) {
           auto evalued_magnitude = evalute_magnitude(effect, data, av);
           if (result < evalued_magnitude) {
             result = evalued_magnitude;
@@ -429,6 +524,118 @@ namespace features::true_flasks
     }
     
     return result;
+  }
+
+  bool is_flask_potion(RE::AlchemyItem* potion)
+  {
+    return potion && identify_flask_type(potion, config::config_manager::get_singleton()).has_value();
+  }
+
+  bool is_valid_inventory_use_potion(RE::AlchemyItem* potion, const config::flask_settings_base& settings,
+                                     const flask_type type)
+  {
+    if (!potion || !settings.inventory_keyword || type == flask_type::Other) {
+      return false;
+    }
+
+    if (is_flask_potion(potion)) {
+      return false;
+    }
+
+    if (!try_potion_has_keyword(potion, settings.inventory_keyword)) {
+      return false;
+    }
+
+    return get_potion_max_magnitude_with_actor_value(potion, get_av_by_flask_type(type)) > 0.f;
+  }
+
+  bool is_valid_inventory_deposit_potion(RE::AlchemyItem* potion, const config::flask_settings_base& settings)
+  {
+    if (!potion || !settings.inventory_keyword) {
+      return false;
+    }
+
+    if (is_flask_potion(potion)) {
+      return false;
+    }
+
+    return get_potion_restore_count_with_keyword(potion, settings.inventory_keyword) > 0;
+  }
+
+  RE::AlchemyItem* get_selected_inventory_potion(RE::Actor* actor, const config::flask_settings_base& settings,
+                                                 const flask_type type, const bool for_deposit)
+  {
+    if (!actor || !settings.inventory_keyword) {
+      return nullptr;
+    }
+
+    const auto inventory = actor->GetInventory([](RE::TESBoundObject& object) {
+      return object.GetFormType() == RE::FormType::AlchemyItem;
+    });
+
+    RE::AlchemyItem* selected = nullptr;
+    float selected_magnitude = 0.f;
+
+    for (const auto& [item, inv_data] : inventory) {
+      const auto& [count, entry] = inv_data;
+      if (count <= 0 || !entry) {
+        continue;
+      }
+
+      auto* potion = item ? item->As<RE::AlchemyItem>() : nullptr;
+      const auto actual_count = get_actual_item_count(actor, potion, count);
+      if (actual_count <= 0) {
+        continue;
+      }
+
+      const auto is_valid = for_deposit
+                              ? is_valid_inventory_deposit_potion(potion, settings)
+                              : is_valid_inventory_use_potion(potion, settings, type);
+      if (!is_valid) {
+        continue;
+      }
+
+      if (settings.inventory_select_mode_value == inventory_select_mode::first_found) {
+        return potion;
+      }
+
+      const auto magnitude = for_deposit
+                               ? static_cast<float>(get_potion_restore_count_with_keyword(potion, settings.inventory_keyword))
+                               : get_potion_max_magnitude_with_actor_value(potion, get_av_by_flask_type(type));
+      if (!selected) {
+        selected = potion;
+        selected_magnitude = magnitude;
+        continue;
+      }
+
+      if (settings.inventory_select_mode_value == inventory_select_mode::weakest_first) {
+        if (magnitude < selected_magnitude) {
+          selected = potion;
+          selected_magnitude = magnitude;
+        }
+      } else if (magnitude > selected_magnitude) {
+        selected = potion;
+        selected_magnitude = magnitude;
+      }
+    }
+
+    return selected;
+  }
+
+  bool consume_pending_inventory_drink(RE::Actor* actor, const RE::AlchemyItem* potion)
+  {
+    if (!g_pending_inventory_drink.active || !actor || !potion) {
+      return false;
+    }
+
+    const auto is_match = g_pending_inventory_drink.actor_id == actor->GetFormID() &&
+                          g_pending_inventory_drink.potion_id == potion->GetFormID();
+    if (is_match) {
+      g_pending_inventory_drink.active = false;
+      return true;
+    }
+
+    return false;
   }
   
   bool consume_flask_slot(const flask_type type, RE::Actor* actor, const int count)
@@ -482,6 +689,47 @@ namespace features::true_flasks
     return false;
   }
 
+  void try_inventory_deposit(RE::Actor* actor, core::actors_cache::cache_data::actor_data& actor_data,
+                             const config::flask_settings_base& settings, const flask_type type)
+  {
+    if (!actor) {
+      return;
+    }
+
+    const auto max_slots = calculate_max_slots(actor, settings, type);
+    if (max_slots <= 0) {
+      return;
+    }
+
+    auto flasks = get_flasks_array(actor_data, type);
+    if (!flasks) {
+      return;
+    }
+
+    auto current_slots = count_available_flasks(actor, flasks, type, max_slots);
+    while (current_slots < max_slots) {
+      auto* potion = get_selected_inventory_potion(actor, settings, type, true);
+      if (!potion) {
+        break;
+      }
+
+      const auto restore_count = get_potion_restore_count_with_keyword(potion, settings.inventory_keyword);
+      if (restore_count <= 0) {
+        break;
+      }
+
+      const auto restore_amount = (std::min)(max_slots - current_slots, restore_count);
+      if (!restore_flask_slots(flasks, max_slots, restore_amount)) {
+        break;
+      }
+
+      logger::info("Inventory deposit restored {} slot(s): type {}, potion {}, missing_before {}",
+                   restore_amount, static_cast<int>(type), potion->GetName(), max_slots - current_slots);
+      current_slots += restore_amount;
+      actor->RemoveItem(potion, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+    }
+  }
+
   export bool drink_potion(const core::hooks_ctx::on_actor_drink_potion& ctx)
   {
     logger::info("DrinkPotion: Character -> {} Potion -> {} IsFood -> {} IsPoison -> {}",
@@ -489,6 +737,10 @@ namespace features::true_flasks
                  ctx.potion->IsPoison());
 
     if (ctx.potion->IsFood() || ctx.potion->IsPoison()) {
+      return true;
+    }
+
+    if (consume_pending_inventory_drink(ctx.actor, ctx.potion)) {
       return true;
     }
 
@@ -575,11 +827,20 @@ namespace features::true_flasks
 
 
     actor_data.update(d_data);
+  }
+  
+  export void update_1s(const core::hooks_ctx::on_actor_update& ctx)
+  {
+    
+    const auto config = config::config_manager::get_singleton();
+    auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(ctx.actor->GetFormID());
 
     for (auto type : kFlaskTypes) {
       if (is_in_inventory_mode_deposit(ctx.actor, type)) {
         const auto settings = get_settings(config, type);
-        
+        if (settings) {
+          try_inventory_deposit(ctx.actor, actor_data, *settings, type);
+        }
       }
     }
   }

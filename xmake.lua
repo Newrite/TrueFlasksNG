@@ -30,7 +30,7 @@ set_config("skyrim_se", true)
 set_config("skse_xbyak", true)
 
 rule("prisma_ui_resources")
-    set_extensions(".html", ".css", ".js", ".svg")
+    set_extensions(".html", ".css", ".js", ".svg", ".ttf")
     
 
 -- targets
@@ -55,7 +55,7 @@ set_policy("build.c++.modules", true)
 -- add src files
 add_includedirs("src")
 set_pcxxheader("src/pch.h")
-add_headerfiles("src/**.h", "src/**.hpp", "src/**.html", "src/**.js", "src/**.css", "src/**.svg")
+add_headerfiles("src/**.h", "src/**.hpp", "src/**.html", "src/**.js", "src/**.css", "src/**.svg", "src/**.ttf")
 add_files("src/**.cpp")
 
 after_build(function(target)

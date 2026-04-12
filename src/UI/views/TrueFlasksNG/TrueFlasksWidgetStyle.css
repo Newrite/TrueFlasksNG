@@ -1,3 +1,7 @@
+:root {
+    --flask-counter-font: 'Impact', 'Bahnschrift', sans-serif;
+}
+
 body {
     margin: 0;
     padding: 0;
@@ -45,7 +49,7 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
     
-    font-family: 'Impact', 'Bahnschrift', sans-serif;
+    font-family: var(--flask-counter-font);
     font-weight: 400;
     font-size: 45px; /* Scaled from 90px in 484px viewBox to 240px container */
     
