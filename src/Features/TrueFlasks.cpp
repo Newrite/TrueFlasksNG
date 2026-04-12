@@ -528,7 +528,30 @@ namespace features::true_flasks
 
   bool is_flask_potion(RE::AlchemyItem* potion)
   {
-    return potion && identify_flask_type(potion, config::config_manager::get_singleton()).has_value();
+    if (!potion) {
+      return false;
+    }
+
+    const auto* config = config::config_manager::get_singleton();
+    if (!config) {
+      return false;
+    }
+
+    if (config->main.no_remove_keyword && core::utility::try_form_has_keyword(potion, config->main.no_remove_keyword)) {
+      return true;
+    }
+
+    if (config->flasks_health.keyword && core::utility::try_form_has_keyword(potion, config->flasks_health.keyword)) {
+      return true;
+    }
+    if (config->flasks_stamina.keyword && core::utility::try_form_has_keyword(potion, config->flasks_stamina.keyword)) {
+      return true;
+    }
+    if (config->flasks_magick.keyword && core::utility::try_form_has_keyword(potion, config->flasks_magick.keyword)) {
+      return true;
+    }
+
+    return false;
   }
 
   bool is_valid_inventory_use_potion(RE::AlchemyItem* potion, const config::flask_settings_base& settings,
