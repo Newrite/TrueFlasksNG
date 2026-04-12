@@ -1,6 +1,7 @@
 module;
 
 #include "API/TrueFlasksAPI.h"
+#include "RE/E/EffectSetting.h"
 
 export module TrueFlasks.Features.TrueFlasks;
 
@@ -22,8 +23,15 @@ import TrueFlasks.Events.EventsCtx;
 namespace features::true_flasks
 {
   export using flask_type = TrueFlasksAPI::FlaskType;
+  
+  using inventory_mode = config::inventory_mode;
+  using inventory_select_mode = config::inventory_select_mode;
 
   constexpr int kFlaskTypeCount = core::actors_cache::cache_data::actor_data::FLASK_TYPE_SIZE;
+  constexpr int kFlaskMaxCount = core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE;
+  constexpr auto kFlaskTypes = std::array{flask_type::Health, flask_type::Stamina, flask_type::Magick, flask_type::Other};
+  using effect_flag = RE::EffectSetting::EffectSettingData::Flag;
+  using effect_archetype = RE::EffectSetting::Archetype;
 
   bool is_valid_flask_type(const flask_type type)
   {
@@ -33,7 +41,7 @@ namespace features::true_flasks
 
   int get_slot_limit(const int max_slots)
   {
-    return (std::min)((std::max)(max_slots, 0), core::actors_cache::cache_data::actor_data::FLASK_ARRAY_SIZE);
+    return (std::min)((std::max)(max_slots, 0), kFlaskMaxCount);
   }
 
   const config::flask_settings_base* get_settings(const config::config_manager* config, const flask_type type)
@@ -78,9 +86,108 @@ namespace features::true_flasks
 
     return std::nullopt;
   }
-
-  int calculate_max_slots(RE::Actor* actor, const config::flask_settings_base& settings)
+  
+  bool is_in_inventory_mode(const RE::Actor* actor, const flask_type type)
   {
+    auto settings = get_settings(config::config_manager::get_singleton(), type);
+    if (actor && core::utility::is_player(actor) && settings->inventory_keyword && settings->inventory_mode_value != inventory_mode::disabled) {
+      return true;
+    }
+    return false;
+  }
+  
+  bool is_in_inventory_mode_deposit(const RE::Actor* actor, const flask_type type)
+  {
+    auto settings = get_settings(config::config_manager::get_singleton(), type);
+    if (actor && core::utility::is_player(actor) && settings->inventory_keyword && settings->inventory_mode_value == inventory_mode::deposit) {
+      return true;
+    }
+    return false;
+  }
+  
+  bool is_in_inventory_mod_use(const RE::Actor* actor, const flask_type type)
+  {
+    if (type == flask_type::Other) {
+      return false;
+    }
+    auto settings = get_settings(config::config_manager::get_singleton(), type);
+    if (actor && core::utility::is_player(actor) && settings->inventory_keyword && settings->inventory_mode_value == inventory_mode::use) {
+      return true;
+    }
+    return false;
+  }
+  
+  export auto try_potion_has_keyword(const RE::AlchemyItem* potion, const RE::BGSKeyword* keyword) -> bool
+  {
+    if (!potion || !keyword) {
+      return false;
+    }
+    
+    if (potion->HasKeyword(keyword)) {
+      return true;
+    }
+
+    for (const auto effect : potion->effects) {
+        if (effect && effect->baseEffect && effect->baseEffect->HasKeyword(keyword)) {
+          return true;
+        }
+    }
+
+    return false;
+  }
+  
+  export auto get_potion_count_with_keyword(RE::TESObjectREFR* a_container, const RE::BGSKeyword* keyword) -> std::int32_t
+  {
+    std::int32_t iResult = 0;
+    
+    if (!a_container || !keyword) {
+      return iResult;
+    }
+
+    auto invChanges = a_container->GetInventoryChanges();
+    if (invChanges && invChanges->entryList) {
+      for (auto& entry : *invChanges->entryList) {
+        if (entry && entry->object && entry->object->GetFormType() == RE::FormType::AlchemyItem && try_potion_has_keyword(entry->object->As<RE::AlchemyItem>, keyword)) {
+          if (entry->IsLeveled()) {
+            return entry->countDelta > 0 ? entry->countDelta : 0;
+          } else {
+            iResult = entry->countDelta;
+            break;
+          }
+        }
+      }
+    }
+
+    auto container = a_container->GetContainer();
+    if (container) {
+      container->ForEachContainerObject([&](RE::ContainerObject& a_entry) {
+        if (a_entry.obj && a_entry.obj->GetFormType() == RE::FormType::AlchemyItem && try_potion_has_keyword(a_entry.obj->As<RE::AlchemyItem>, keyword)) {
+          iResult += a_entry.count;
+          return RE::BSContainer::ForEachResult::kStop;
+        }
+        return RE::BSContainer::ForEachResult::kContinue;
+      });
+    }
+
+    return iResult > 0 ? iResult : 0;
+  }
+  
+  int get_potions_count(RE::Actor* actor, const config::flask_settings_base& settings, const flask_type type)
+  {
+    if (!is_in_inventory_mode(actor, type)) {
+      return 0;
+    }
+    
+    return get_potion_count_with_keyword(actor, settings.inventory_keyword);
+  }
+
+  int calculate_max_slots(RE::Actor* actor, const config::flask_settings_base& settings, const flask_type type)
+  {
+    
+    if (is_in_inventory_mod_use(actor, type)) {
+      return kFlaskMaxCount;
+    }
+    
     auto base = static_cast<float>(settings.cap_base);
     if (settings.cap_keyword) {
       // const auto effects = core::utility::get_active_effects_by_keyword(actor, settings.cap_keyword);
@@ -123,12 +230,20 @@ namespace features::true_flasks
     return (std::max)(0.f, base);
   }
 
-  int count_available_flasks(core::actors_cache::cache_data::actor_data::flask_cooldown* flasks, const int max_slots)
+  int count_available_flasks(RE::Actor* actor, core::actors_cache::cache_data::actor_data::flask_cooldown* flasks, const flask_type type, const int max_slots)
   {
     if (!flasks) return 0;
 
     int available = 0;
     const int limit = get_slot_limit(max_slots);
+    if (is_in_inventory_mod_use(actor, type)) {
+      auto settings = get_settings(config::config_manager::get_singleton(), type);
+      auto potion_count = get_potion_count_with_keyword(actor, settings->inventory_keyword);
+      if (potion_count > limit) {
+        return limit;
+      }
+      return potion_count;
+    }
 
     for (const int i : std::views::iota(0, limit)) {
       if (flasks[i].cooldown_current <= 0.f) {
@@ -155,14 +270,20 @@ namespace features::true_flasks
     return recharging;
   }
 
-  bool consume_flask_slots(core::actors_cache::cache_data::actor_data::flask_cooldown* flasks,
+  bool consume_flask_slots(RE::Actor* actor, core::actors_cache::cache_data::actor_data::flask_cooldown* flasks, const flask_type type,
                            const float cooldown_duration, const int max_slots, const int count)
   {
     if (!flasks || count <= 0) return false;
 
     const int limit = get_slot_limit(max_slots);
-    if (limit <= 0 || count_available_flasks(flasks, limit) < count) {
+    if (limit <= 0 || count_available_flasks(actor, flasks, type, limit) < count) {
       return false;
+    }
+    
+    if (is_in_inventory_mod_use(actor, type)) {
+      auto settings = get_settings(config::config_manager::get_singleton(), type);
+      auto object = core::utility::game::get_object_in_inventory_by_keyword(actor, settings->inventory_keyword, RE::FormType::AlchemyItem);
+      return object && actor->DrinkPotion(object->As<RE::AlchemyItem>, nullptr);
     }
 
     int consumed = 0;
@@ -227,8 +348,88 @@ namespace features::true_flasks
     return nullptr;
   }
 
-  // Forward declaration needed because api_get_current_slots is defined later
+  // Forward declarations needed because API accessors are defined later
+  export auto api_get_max_slots(RE::Actor* actor, const flask_type type) -> int;
   export auto api_get_current_slots(RE::Actor* actor, const flask_type type) -> int;
+  
+  auto get_potion_max_magnitude_with_keyword(RE::AlchemyItem* potion, const RE::BGSKeyword* keyword) -> float
+  {
+    auto result = -1.f;
+    if (!potion || !keyword) {
+      return result;
+    }
+    
+    for (const auto effect : potion->effects) {
+      if (effect && effect->baseEffect && effect->baseEffect->HasKeyword(keyword) && effect->GetMagnitude() > result) {
+        if (effect->baseEffect->data.flags.any(effect_flag::kRecover)) {
+          result = effect->GetMagnitude();
+        }
+      }
+    }
+    
+    return result;
+  }
+  
+  auto get_av_by_flask_type(const flask_type type) -> RE::ActorValue
+  {
+    switch (type) {
+    	case flask_type::Health:  return RE::ActorValue::kHealth;
+    	case flask_type::Stamina: return RE::ActorValue::kStamina;
+    	case flask_type::Magick:  return RE::ActorValue::kMagicka;
+    	default:                  return RE::ActorValue::kNone;
+    }
+  }
+  
+  auto evalute_magnitude(RE::Effect* effect, RE::EffectSetting::EffectSettingData& data, const RE::ActorValue av) -> float
+  {
+    auto result = 0.f;
+    if (!effect) {
+      return result;
+    }
+    
+    auto archetype = data.archetype;
+    if (archetype == effect_archetype::kValueModifier && data.primaryAV == av) {
+      result = effect->GetMagnitude();
+    }
+    
+    if (archetype == effect_archetype::kPeakValueModifier && data.primaryAV == av) {
+      result = effect->GetMagnitude();
+    }
+    
+    if (archetype == effect_archetype::kDualValueModifier) {
+      if (data.primaryAV == av) {
+        result = effect->GetMagnitude();
+      }
+      if (data.secondaryAV == av) {
+        result = result + (effect->GetMagnitude() * data.secondAVWeight);
+      }
+    }
+    
+    return result;
+    
+  }
+  
+  auto get_potion_max_magnitude_with_actor_value(RE::AlchemyItem* potion, const RE::ActorValue av) -> float
+  {
+    auto result = -1.f;
+    if (!potion || av == RE::ActorValue::kNone) {
+      return result;
+    }
+    
+    for (const auto effect : potion->effects) {
+      if (effect && effect->baseEffect) {
+        auto& data = effect->baseEffect->data;
+        if (data.flags.any(effect_flag::kRecover) && !data.flags.any(effect_flag::kDetrimental)) {
+          auto evalued_magnitude = evalute_magnitude(effect, data, av);
+          if (result < evalued_magnitude) {
+            result = evalued_magnitude;
+          }
+        }
+      }
+    }
+    
+    return result;
+  }
   
   bool consume_flask_slot(const flask_type type, RE::Actor* actor, const int count)
   {
@@ -242,12 +443,12 @@ namespace features::true_flasks
       return false;
     }
     
-    const auto max_slots = calculate_max_slots(actor, *settings);
+    const auto max_slots = calculate_max_slots(actor, *settings, type);
     const auto cooldown = calculate_cooldown(actor, *settings);
 
     auto flasks = get_flasks_array(actor_data, type);
 
-    if (consume_flask_slots(flasks, cooldown, max_slots, count)) {
+    if (consume_flask_slots(actor, flasks, type, cooldown, max_slots, count)) {
       logger::info("Consumed {} flask slot(s): type {}, cooldown {:.1f}, slots {}/{}", count,
                    static_cast<int>(type), cooldown,
                    api_get_current_slots(actor, type), max_slots);
@@ -269,7 +470,7 @@ namespace features::true_flasks
       return false;
     }
 
-    const auto max_slots = calculate_max_slots(actor, *settings);
+    const auto max_slots = calculate_max_slots(actor, *settings, type);
     auto flasks = get_flasks_array(actor_data, type);
 
     if (restore_flask_slots(flasks, max_slots, count)) {
@@ -304,6 +505,11 @@ namespace features::true_flasks
 
     if (!settings->enable) {
       logger::info("Flask type {} disabled", static_cast<int>(type));
+      return true;
+    }
+    
+    if (is_in_inventory_mode(ctx.actor, type) && try_potion_has_keyword(ctx.potion, settings->inventory_keyword)) {
+      logger::info("Flask in_inventory_mode consumed ", ctx.potion->GetName());
       return true;
     }
 
@@ -369,6 +575,13 @@ namespace features::true_flasks
 
 
     actor_data.update(d_data);
+
+    for (auto type : kFlaskTypes) {
+      if (is_in_inventory_mode_deposit(ctx.actor, type)) {
+        const auto settings = get_settings(config, type);
+        
+      }
+    }
   }
   
   export void update_ui(const core::hooks_ctx::on_actor_update& ctx)
@@ -478,7 +691,7 @@ namespace features::true_flasks
     const auto config = config::config_manager::get_singleton();
     const auto settings = get_settings(config, type);
     if (!settings) return 0;
-    return calculate_max_slots(actor, *settings);
+    return calculate_max_slots(actor, *settings, type);
   }
 
   export auto api_get_current_slots(RE::Actor* actor, const flask_type type) -> int
@@ -493,6 +706,15 @@ namespace features::true_flasks
 
     int available = 0;
     const int limit = get_slot_limit(max_slots);
+    
+    auto settings = get_settings(config::config_manager::get_singleton(), type);
+    if (is_in_inventory_mod_use(actor, type)) {
+      auto potion_count = get_potions_count(actor, *settings, type);
+      if (potion_count > limit) {
+        return limit;
+      }
+      return potion_count;
+    }
 
     for (const int i : std::views::iota(0, limit)) {
       if (flasks[i].cooldown_current <= 0.f) {
@@ -505,6 +727,10 @@ namespace features::true_flasks
   export auto api_get_next_cooldown(RE::Actor* actor, const flask_type type) -> float
   {
     if (!actor) return 0.f;
+    
+    if (is_in_inventory_mod_use(actor, type)) {
+      return 0.f;
+    }
 
     const auto max_slots = api_get_max_slots(actor, type);
     auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(actor->GetFormID());
@@ -587,6 +813,10 @@ namespace features::true_flasks
   export auto api_get_cooldown_pct(RE::Actor* actor, const flask_type type) -> float
   {
     if (!actor) return 1.0f;
+    
+    if (is_in_inventory_mod_use(actor, type)) {
+      return 1.f;
+    }
 
     const auto max_slots = api_get_max_slots(actor, type);
     auto& actor_data = core::actors_cache::cache_data::get_singleton()->get_or_add(actor->GetFormID());

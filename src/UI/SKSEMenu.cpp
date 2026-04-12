@@ -80,6 +80,90 @@ namespace ui::skse_menu
     return changed;
   }
 
+  const char* get_inventory_mode_label(const config::inventory_mode mode)
+  {
+    switch (mode) {
+    case config::inventory_mode::disabled: return "Disabled";
+    case config::inventory_mode::use: return "Use";
+    case config::inventory_mode::deposit: return "Deposit";
+    }
+    return "Unknown";
+  }
+
+  bool render_inventory_mode_combo(const char* label, config::inventory_mode& mode)
+  {
+    bool changed = false;
+    if (ImGui::BeginCombo(label, get_inventory_mode_label(mode))) {
+      for (const auto option : {config::inventory_mode::disabled, config::inventory_mode::use,
+                                config::inventory_mode::deposit}) {
+        const bool selected = option == mode;
+        if (ImGui::Selectable(get_inventory_mode_label(option), selected)) {
+          mode = option;
+          changed = true;
+        }
+        if (selected) {
+          ImGui::SetItemDefaultFocus();
+        }
+      }
+      ImGui::EndCombo();
+    }
+    return changed;
+  }
+
+  bool render_inventory_mode_combo_no_use(const char* label, config::inventory_mode& mode)
+  {
+    if (mode == config::inventory_mode::use) {
+      mode = config::inventory_mode::disabled;
+    }
+
+    bool changed = false;
+    if (ImGui::BeginCombo(label, get_inventory_mode_label(mode))) {
+      for (const auto option : {config::inventory_mode::disabled, config::inventory_mode::deposit}) {
+        const bool selected = option == mode;
+        if (ImGui::Selectable(get_inventory_mode_label(option), selected)) {
+          mode = option;
+          changed = true;
+        }
+        if (selected) {
+          ImGui::SetItemDefaultFocus();
+        }
+      }
+      ImGui::EndCombo();
+    }
+    return changed;
+  }
+
+  const char* get_inventory_select_mode_label(const config::inventory_select_mode mode)
+  {
+    switch (mode) {
+    case config::inventory_select_mode::weakest_first: return "Weakest First";
+    case config::inventory_select_mode::strongest_first: return "Strongest First";
+    case config::inventory_select_mode::first_found: return "First Found";
+    }
+    return "Unknown";
+  }
+
+  bool render_inventory_select_mode_combo(const char* label, config::inventory_select_mode& mode)
+  {
+    bool changed = false;
+    if (ImGui::BeginCombo(label, get_inventory_select_mode_label(mode))) {
+      for (const auto option : {config::inventory_select_mode::weakest_first,
+                                config::inventory_select_mode::strongest_first,
+                                config::inventory_select_mode::first_found}) {
+        const bool selected = option == mode;
+        if (ImGui::Selectable(get_inventory_select_mode_label(option), selected)) {
+          mode = option;
+          changed = true;
+        }
+        if (selected) {
+          ImGui::SetItemDefaultFocus();
+        }
+      }
+      ImGui::EndCombo();
+    }
+    return changed;
+  }
+
   void RenderTooltip(const char* desc)
   {
     if (ImGui::IsItemHovered()) {
@@ -91,7 +175,25 @@ namespace ui::skse_menu
     }
   }
 
-  void render_flask_settings_group(const char* label, config::flask_settings_base& settings)
+  void render_inventory_settings(config::flask_settings& settings, bool& changed)
+  {
+    if (render_inventory_mode_combo("Inventory Mode", settings.inventory_mode_value)) changed = true;
+    RenderTooltip("Disabled: ignore inventory support. Use: drinking the flask consumes one matching inventory potion and uses its effect; the flask charge count equals the number of matching potions. Deposit: auto-convert matching inventory potions into flask charges for the player.");
+
+    if (render_inventory_select_mode_combo("Inventory Select Mode", settings.inventory_select_mode_value)) changed = true;
+    RenderTooltip("How to choose a potion from inventory when several items match the inventory keyword.");
+  }
+
+  void render_inventory_settings(config::flask_settings_base& settings, bool& changed)
+  {
+    if (render_inventory_mode_combo_no_use("Inventory Mode", settings.inventory_mode_value)) changed = true;
+    RenderTooltip("Disabled: ignore inventory support. Deposit: auto-convert matching inventory potions into flask charges.");
+
+    if (render_inventory_select_mode_combo("Inventory Select Mode", settings.inventory_select_mode_value)) changed = true;
+    RenderTooltip("How to choose a potion from inventory when several items match the inventory keyword.");
+  }
+
+  void render_flask_settings_group(const char* label, config::flask_settings& settings)
   {
     if (ImGui::CollapsingHeader(label)) {
       ImGui::PushID(label);
@@ -108,6 +210,8 @@ namespace ui::skse_menu
 
       if (render_keybind_combo("Hotkey", settings.hotkey)) changed = true;
       RenderTooltip("Keyboard key used to drink this flask type. 'None' disables the hotkey.");
+
+      render_inventory_settings(settings, changed);
 
       // Notify string handling
       char buffer_notify[512];
@@ -171,6 +275,8 @@ namespace ui::skse_menu
 
       if (ImGui::Checkbox("Enable for NPC", &settings.npc)) changed = true;
       RenderTooltip("Enable this flask type for NPCs.");
+
+      render_inventory_settings(settings, changed);
 
       char buffer[256];
       strncpy_s(buffer, settings.notify.c_str(), sizeof(buffer) - 1);

@@ -10,16 +10,33 @@ import TrueFlasks.Core.Utility;
 
 namespace config
 {
+  export enum class inventory_mode : int
+  {
+    disabled = 0,
+    use = 1,
+    deposit = 2
+  };
+
+  export enum class inventory_select_mode : int
+  {
+    weakest_first = 0,
+    strongest_first = 1,
+    first_found = 2
+  };
+
   export struct flask_settings_base
   {
     bool enable{true};
     bool npc{false};
     bool player{true};
-    std::uint32_t hotkey{0};
     std::string notify{"I can't drink any more potions."};
     bool enable_parallel_cooldown{false};
     bool anti_spam{true};
     float anti_spam_delay{0.1f};
+
+    inventory_mode inventory_mode_value{inventory_mode::disabled};
+    inventory_select_mode inventory_select_mode_value{inventory_select_mode::first_found};
+    RE::BGSKeyword* inventory_keyword{nullptr};
 
     float regeneration_mult_base{100.0f};
     RE::BGSKeyword* regeneration_mult_keyword{nullptr};
@@ -36,6 +53,7 @@ namespace config
 
   export struct flask_settings : flask_settings_base
   {
+    std::uint32_t hotkey{0};
     RE::BGSKeyword* keyword{nullptr};
   };
 
@@ -226,8 +244,6 @@ namespace config
           parse_bool(collection.get("FlasksNPC"), settings.npc);
         if (collection.has("FlasksPlayer"))
           parse_bool(collection.get("FlasksPlayer"), settings.player);
-        if (collection.has("FlasksHotkey"))
-          parse_uint32(collection.get("FlasksHotkey"), settings.hotkey);
         if (collection.has("FlasksNotify"))
           settings.notify = collection.get("FlasksNotify");
         if (collection.has("FlasksEnableParallelCooldown"))
@@ -269,6 +285,33 @@ namespace config
       settings.fail_audio_form = parse_sound_descriptor(fail_sound);
     }
 
+    void read_inventory_settings(const mINI::INIStructure& ini,
+                                 const std::string& section,
+                                 flask_settings_base& settings)
+    {
+      std::string inventory_kw = "0x800~Mod.esp";
+
+      if (ini.has(section)) {
+        const auto& collection = ini.get(section);
+        if (collection.has("InventoryMode")) {
+          int inventory_mode_raw = static_cast<int>(settings.inventory_mode_value);
+          parse_int(collection.get("InventoryMode"), inventory_mode_raw);
+          inventory_mode_raw = (std::clamp)(inventory_mode_raw, 0, 2);
+          settings.inventory_mode_value = static_cast<inventory_mode>(inventory_mode_raw);
+        }
+        if (collection.has("InventorySelectMode")) {
+          int inventory_select_mode_raw = static_cast<int>(settings.inventory_select_mode_value);
+          parse_int(collection.get("InventorySelectMode"), inventory_select_mode_raw);
+          inventory_select_mode_raw = (std::clamp)(inventory_select_mode_raw, 0, 2);
+          settings.inventory_select_mode_value = static_cast<inventory_select_mode>(inventory_select_mode_raw);
+        }
+        if (collection.has("InventoryKeyword"))
+          inventory_kw = collection.get("InventoryKeyword");
+      }
+
+      settings.inventory_keyword = parse_keyword(inventory_kw);
+    }
+
     void populate_ini(mINI::INIStructure& ini)
     {
       ini["TrueFlasksNG"]["NoRemoveKeyword"] =
@@ -279,13 +322,16 @@ namespace config
         ini[section]["FlasksEnable"] = s.enable ? "1" : "0";
         ini[section]["FlasksNPC"] = s.npc ? "1" : "0";
         ini[section]["FlasksPlayer"] = s.player ? "1" : "0";
-        ini[section]["FlasksHotkey"] = std::to_string(s.hotkey);
         ini[section]["FlasksNotify"] = s.notify;
         ini[section]["FlasksEnableParallelCooldown"] =
           s.enable_parallel_cooldown ? "1" : "0";
         ini[section]["FlasksAntiSpam"] = s.anti_spam ? "1" : "0";
         ini[section]["FlasksAntiSpamDelay"] =
           std::format("{:.1f}", s.anti_spam_delay);
+        ini[section]["InventoryMode"] = std::to_string(static_cast<int>(s.inventory_mode_value));
+        ini[section]["InventorySelectMode"] = std::to_string(static_cast<int>(s.inventory_select_mode_value));
+        ini[section]["InventoryKeyword"] =
+          keyword_to_string(s.inventory_keyword, "0x800~Mod.esp");
 
         ini[section]["FlasksRegenerationMultBase"] =
           std::format("{:.1f}", s.regeneration_mult_base);
@@ -312,6 +358,7 @@ namespace config
       auto write_flask_full = [&](const std::string& section,
                                   const flask_settings& s) {
         write_flask(section, s);
+        ini[section]["FlasksHotkey"] = std::to_string(s.hotkey);
         ini[section]["FlasksKeyword"] =
           keyword_to_string(s.keyword, "0x800~Mod.esp");
       };
@@ -408,6 +455,7 @@ namespace config
 
       // [FlasksOther]
       read_flask_base(ini, "FlasksOther", flasks_other);
+      read_inventory_settings(ini, "FlasksOther", flasks_other);
       std::string exclusive_kw = "0x800~Mod.esp";
       if (ini.has("FlasksOther")) {
         const auto& sec = ini.get("FlasksOther");
@@ -422,9 +470,12 @@ namespace config
       auto read_flask_full = [&](const std::string& section,
                                  flask_settings& settings) {
         read_flask_base(ini, section, settings);
+        read_inventory_settings(ini, section, settings);
         std::string kw = "0x800~Mod.esp";
         if (ini.has(section)) {
           const auto& sec = ini.get(section);
+          if (sec.has("FlasksHotkey"))
+            parse_uint32(sec.get("FlasksHotkey"), settings.hotkey);
           if (sec.has("FlasksKeyword"))
             kw = sec.get("FlasksKeyword");
         }
