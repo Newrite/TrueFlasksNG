@@ -79,7 +79,8 @@ function initFlask(item) {
             fillRect: svgDoc.getElementById('flask-fill-rect'),
             text: textElement,
             lastCount: -1,
-            maxSlots: -1
+            maxSlots: -1,
+            visibleUntil: 0
         };
     };
 
@@ -198,7 +199,7 @@ window.setWidgetFont = async (fontFileName) => {
 window.updateFlaskData = (args) => {
     if (!args) return;
 
-    let flaskType, fillPercent, count, maxSlots, shouldGlow, animationFill, animationFillOnlyZero, in_combat;
+    let flaskType, fillPercent, count, maxSlots, canRegenerate, shouldGlow, animationFill, animationFillOnlyZero, in_combat;
 
     try {
         const params = JSON.parse(args);
@@ -206,6 +207,7 @@ window.updateFlaskData = (args) => {
         fillPercent = parseFloat(params.percent);
         count = parseInt(params.count);
         maxSlots = parseInt(params.max_slots);
+        canRegenerate = !!params.can_regenerate;
         shouldGlow = params.forceGlow;
         animationFill = params.fill_animation;
         animationFillOnlyZero = params.fill_animation_only_zero;
@@ -253,9 +255,16 @@ window.updateFlaskData = (args) => {
         el.lastCount = count;
     }
 
+    const countChanged = count !== el.lastCount;
+
     if (count > el.lastCount) {
         triggerGlow = true;
     }
+
+    if (countChanged || triggerGlow) {
+        el.visibleUntil = Date.now() + 2000;
+    }
+
     el.lastCount = count;
 
     if (triggerGlow) {
@@ -268,10 +277,15 @@ window.updateFlaskData = (args) => {
         let targetOpacity = visibleOpacity;
 
         const shouldShowDueToCombat = globalSettings.always_show_in_combat && in_combat;
+        const shouldShowDueToActivity = el.visibleUntil > Date.now();
 
         if (globalSettings.auto_hide && !shouldShowDueToCombat) {
-            // Hide full flasks when auto-hide is active.
-            if (count >= maxSlots) {
+            // Hide flasks when auto-hide is active and there is nothing useful to show:
+            // either the flask is full, or it cannot regenerate over time in its current state.
+            // Recent flask activity temporarily reveals the widget even when regeneration is disabled.
+            if (shouldShowDueToActivity) {
+                targetOpacity = visibleOpacity;
+            } else if (count >= maxSlots || !canRegenerate) {
                 targetOpacity = '0';
             } else {
                 targetOpacity = visibleOpacity;

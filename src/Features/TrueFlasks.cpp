@@ -1080,6 +1080,17 @@ namespace features::true_flasks
     return (std::max)(0.f, min_cd);
   }
 
+  export auto api_can_regenerate(RE::Actor* actor, const flask_type type) -> bool
+  {
+    if (!actor) return false;
+
+    const auto config = config::config_manager::get_singleton();
+    const auto settings = get_settings(config, type);
+    if (!settings) return false;
+
+    return calculate_regen_mult_raw(actor, *settings) > 0.0f;
+  }
+
   export auto api_modify_cooldown(RE::Actor* actor, const flask_type type, const float amount,
                                   const bool all_slots) -> void
   {

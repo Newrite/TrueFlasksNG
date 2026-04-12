@@ -47,6 +47,7 @@ namespace ui::prisma
     float percent;
     int count;
     int max_slots;
+    bool can_regenerate;
     bool forceGlow;
     bool fill_animation;
     bool fill_animation_only_zero;
@@ -240,7 +241,11 @@ namespace ui::prisma
     }
     }
 
-    flask_update_data data{type_idx, pct, count, max_slots, force_glow, flask_setting->fill_animation, flask_setting->fill_animation_only_zero, actor->IsInCombat()};
+    const bool can_regenerate = features::true_flasks::api_can_regenerate(actor, type);
+
+    flask_update_data data{type_idx, pct, count, max_slots, can_regenerate, force_glow,
+                           flask_setting->fill_animation, flask_setting->fill_animation_only_zero,
+                           actor->IsInCombat()};
 
     std::string json;
     // Serialize with glaze to preserve the existing payload shape.

@@ -54,20 +54,20 @@ namespace ui::skse_menu
   const auto gamepad_keys = [] {
     return std::to_array<key_option>({
       key_option{0, "None"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kUp), "DPad Up"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kDown), "DPad Down"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kLeft), "DPad Left"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kRight), "DPad Right"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kStart), "Start"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kBack), "Back"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kLeftThumb), "Left Stick"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kRightThumb), "Right Stick"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kLeftShoulder), "LB"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kRightShoulder), "RB"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kA), "A"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kB), "B"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kX), "X"},
-      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kY), "Y"}
+      key_option{SKSE::InputMap::kGamepadButtonOffset_DPAD_UP, "DPad Up"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_DPAD_DOWN, "DPad Down"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_DPAD_LEFT, "DPad Left"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_DPAD_RIGHT, "DPad Right"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_START, "Start"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_BACK, "Back"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_LEFT_THUMB, "Left Stick"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_RIGHT_THUMB, "Right Stick"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_LEFT_SHOULDER, "LB"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_RIGHT_SHOULDER, "RB"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_A, "A"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_B, "B"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_X, "X"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_Y, "Y"}
     });
   }();
 
