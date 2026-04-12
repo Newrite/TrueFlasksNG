@@ -930,9 +930,9 @@ namespace features::true_flasks
       return;
     }
 
-    auto* player = RE::PlayerCharacter::GetSingleton();
-    auto* equip_manager = RE::ActorEquipManager::GetSingleton();
-    auto* config = config::config_manager::get_singleton();
+    auto player = RE::PlayerCharacter::GetSingleton();
+    auto equip_manager = RE::ActorEquipManager::GetSingleton();
+    auto config = config::config_manager::get_singleton();
     if (!player || !equip_manager || !config) {
       return;
     }
@@ -941,8 +941,53 @@ namespace features::true_flasks
       return;
     }
 
-    const auto try_drink = [&](const std::uint32_t bind_key, const config::flask_settings& settings) {
-      if (bind_key == 0 || ctx.key != bind_key || !settings.enable || !settings.player || !settings.keyword) {
+    const auto get_input_device = [&](const RE::INPUT_DEVICE device) -> RE::BSInputDevice* {
+      auto input_manager = RE::BSInputDeviceManager::GetSingleton();
+      if (!input_manager) {
+        return nullptr;
+      }
+
+      switch (device) {
+      case RE::INPUT_DEVICE::kGamepad:
+        return static_cast<RE::BSInputDevice*>(
+          input_manager->devices[static_cast<std::size_t>(RE::INPUT_DEVICE::kGamepad)]);
+      case RE::INPUT_DEVICE::kKeyboard:
+      default:
+        return static_cast<RE::BSInputDevice*>(
+          input_manager->devices[static_cast<std::size_t>(RE::INPUT_DEVICE::kKeyboard)]);
+      }
+    };
+
+    const auto matches_binding = [&](const config::flask_settings& settings) {
+      if (ctx.device == RE::INPUT_DEVICE::kGamepad) {
+        if (settings.gamepad_hotkey == 0) {
+          return false;
+        }
+
+        if (settings.gamepad_hotkey_modifier == 0) {
+          return ctx.key == settings.gamepad_hotkey;
+        }
+
+        auto* input_device = get_input_device(RE::INPUT_DEVICE::kGamepad);
+        return input_device && ctx.key == settings.gamepad_hotkey_modifier &&
+               input_device->IsPressed(settings.gamepad_hotkey);
+      }
+
+      if (settings.hotkey == 0) {
+        return false;
+      }
+
+      if (settings.hotkey_modifier == 0) {
+        return ctx.key == settings.hotkey;
+      }
+
+      auto* input_device = get_input_device(RE::INPUT_DEVICE::kKeyboard);
+      return input_device && ctx.key == settings.hotkey_modifier &&
+             input_device->IsPressed(settings.hotkey);
+    };
+
+    const auto try_drink = [&](const config::flask_settings& settings) {
+      if (!matches_binding(settings) || !settings.enable || !settings.player || !settings.keyword) {
         return false;
       }
 
@@ -956,15 +1001,15 @@ namespace features::true_flasks
       return true;
     };
 
-    if (try_drink(config->flasks_health.hotkey, config->flasks_health)) {
+    if (try_drink(config->flasks_health)) {
       return;
     }
 
-    if (try_drink(config->flasks_stamina.hotkey, config->flasks_stamina)) {
+    if (try_drink(config->flasks_stamina)) {
       return;
     }
 
-    try_drink(config->flasks_magick.hotkey, config->flasks_magick);
+    try_drink(config->flasks_magick);
   }
 
   // API Functions

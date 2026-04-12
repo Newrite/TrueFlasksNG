@@ -51,6 +51,26 @@ namespace ui::skse_menu
     key_option{0xD2, "Insert"}, key_option{0xD3, "Delete"}
   });
 
+  const auto gamepad_keys = [] {
+    return std::to_array<key_option>({
+      key_option{0, "None"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kUp), "DPad Up"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kDown), "DPad Down"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kLeft), "DPad Left"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kRight), "DPad Right"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kStart), "Start"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kBack), "Back"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kLeftThumb), "Left Stick"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kRightThumb), "Right Stick"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kLeftShoulder), "LB"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kRightShoulder), "RB"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kA), "A"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kB), "B"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kX), "X"},
+      key_option{SKSE::InputMap::GamepadMaskToKeycode(RE::BSWin32GamepadDevice::Keys::kY), "Y"}
+    });
+  }();
+
   const char* get_key_label(const std::uint32_t key)
   {
     for (const auto& option : keyboard_keys) {
@@ -66,6 +86,35 @@ namespace ui::skse_menu
     bool changed = false;
     if (ImGui::BeginCombo(label, get_key_label(key))) {
       for (const auto& option : keyboard_keys) {
+        const bool selected = option.code == key;
+        if (ImGui::Selectable(option.label, selected)) {
+          key = option.code;
+          changed = true;
+        }
+        if (selected) {
+          ImGui::SetItemDefaultFocus();
+        }
+      }
+      ImGui::EndCombo();
+    }
+    return changed;
+  }
+
+  const char* get_gamepad_key_label(const std::uint32_t key)
+  {
+    for (const auto& option : gamepad_keys) {
+      if (option.code == key) {
+        return option.label;
+      }
+    }
+    return "Unknown";
+  }
+
+  bool render_gamepad_keybind_combo(const char* label, std::uint32_t& key)
+  {
+    bool changed = false;
+    if (ImGui::BeginCombo(label, get_gamepad_key_label(key))) {
+      for (const auto& option : gamepad_keys) {
         const bool selected = option.code == key;
         if (ImGui::Selectable(option.label, selected)) {
           key = option.code;
@@ -208,8 +257,17 @@ namespace ui::skse_menu
       if (ImGui::Checkbox("Enable for NPC", &settings.npc)) changed = true;
       RenderTooltip("Enable this flask type for NPCs.");
 
-      if (render_keybind_combo("Hotkey", settings.hotkey)) changed = true;
-      RenderTooltip("Keyboard key used to drink this flask type. 'None' disables the hotkey.");
+      if (render_keybind_combo("Keyboard Hotkey", settings.hotkey)) changed = true;
+      RenderTooltip("Keyboard key used to drink this flask type. 'None' disables the keyboard hotkey.");
+
+      if (render_keybind_combo("Keyboard Modifier", settings.hotkey_modifier)) changed = true;
+      RenderTooltip("Optional keyboard modifier that must be held together with the keyboard hotkey. 'None' disables the modifier.");
+
+      if (render_gamepad_keybind_combo("Gamepad Hotkey", settings.gamepad_hotkey)) changed = true;
+      RenderTooltip("Gamepad button used to drink this flask type. 'None' disables the gamepad hotkey.");
+
+      if (render_gamepad_keybind_combo("Gamepad Modifier", settings.gamepad_hotkey_modifier)) changed = true;
+      RenderTooltip("Optional gamepad modifier that must be held together with the gamepad hotkey. 'None' disables the modifier.");
 
       render_inventory_settings(settings, changed);
 

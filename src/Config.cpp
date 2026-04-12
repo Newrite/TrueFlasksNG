@@ -54,6 +54,9 @@ namespace config
   export struct flask_settings : flask_settings_base
   {
     std::uint32_t hotkey{0};
+    std::uint32_t hotkey_modifier{0};
+    std::uint32_t gamepad_hotkey{0};
+    std::uint32_t gamepad_hotkey_modifier{0};
     RE::BGSKeyword* keyword{nullptr};
   };
 
@@ -359,6 +362,9 @@ namespace config
                                   const flask_settings& s) {
         write_flask(section, s);
         ini[section]["FlasksHotkey"] = std::to_string(s.hotkey);
+        ini[section]["FlasksHotkeyModifier"] = std::to_string(s.hotkey_modifier);
+        ini[section]["FlasksGamepadHotkey"] = std::to_string(s.gamepad_hotkey);
+        ini[section]["FlasksGamepadHotkeyModifier"] = std::to_string(s.gamepad_hotkey_modifier);
         ini[section]["FlasksKeyword"] =
           keyword_to_string(s.keyword, "0x800~Mod.esp");
       };
@@ -476,6 +482,12 @@ namespace config
           const auto& sec = ini.get(section);
           if (sec.has("FlasksHotkey"))
             parse_uint32(sec.get("FlasksHotkey"), settings.hotkey);
+          if (sec.has("FlasksHotkeyModifier"))
+            parse_uint32(sec.get("FlasksHotkeyModifier"), settings.hotkey_modifier);
+          if (sec.has("FlasksGamepadHotkey"))
+            parse_uint32(sec.get("FlasksGamepadHotkey"), settings.gamepad_hotkey);
+          if (sec.has("FlasksGamepadHotkeyModifier"))
+            parse_uint32(sec.get("FlasksGamepadHotkeyModifier"), settings.gamepad_hotkey_modifier);
           if (sec.has("FlasksKeyword"))
             kw = sec.get("FlasksKeyword");
         }
