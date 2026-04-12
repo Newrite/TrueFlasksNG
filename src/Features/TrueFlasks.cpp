@@ -17,6 +17,7 @@ import TrueFlasks.Config;
 import TrueFlasks.Core.ActorsCache;
 import TrueFlasks.Core.Utility;
 import TrueFlasks.API.ModAPI;
+import TrueFlasks.Events.EventsCtx;
 
 namespace features::true_flasks
 {
@@ -424,6 +425,21 @@ namespace features::true_flasks
       ctx.count = 0;
       logger::info("Prevented removal of flask: {} from actor: {:08X}", potion->GetName(), ctx.actor->GetFormID());
     }
+  }
+  
+  export auto on_input_event(const events::events_ctx::process_event_input_ctx& ctx) 
+  {
+    auto key_health_example = 0;
+    if (ctx.key == key_health_example) {
+      auto player = RE::PlayerCharacter::GetSingleton();
+      auto config = config::config_manager::get_singleton();
+      auto health_potion = core::utility::game::get_object_in_inventory_by_keyword(player, config->flasks_health.keyword, RE::FormType::AlchemyItem);
+      if (!health_potion) return;
+      
+      RE::ActorEquipManager::GetSingleton()->EquipObject(player, health_potion);
+      
+    }
+    
   }
 
   // API Functions

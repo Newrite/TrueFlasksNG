@@ -323,7 +323,7 @@ namespace core::utility
       return "NULL_FORM";
     }
 
-    return std::format("{:#x}~{}", is_local_id ? form->GetLocalFormID() : form->GetFormID(), form->GetFile()->fileName);
+    return std::format("{:#x}~{}", is_local_id ? form->GetLocalFormID() : form->GetFormID(), form->GetFile(0)->fileName);
   }
 
   export auto get_actor_from_ni_actor(RE::NiPointer<RE::Actor>& ni_actor) -> RE::Actor*
@@ -604,6 +604,30 @@ namespace core::utility::game
                                          bool);
     static REL::Relocation<func_t> func{RELOCATION_ID(55672, 56203)};
     return func(NULL, NULL, target, object, count, persistent, disabled);
+  }
+  
+  export auto get_object_in_inventory_by_keyword(RE::Actor* actor, const RE::BGSKeyword* keyword, const RE::FormType formType) -> RE::TESBoundObject*
+  {
+    if (!actor || !keyword) {
+      return nullptr;
+    }
+
+    const auto inv = actor->GetInventory([formType](RE::TESBoundObject& object) {
+        return object.GetFormType() == formType;
+    });
+
+    for (const auto& [item, invData] : inv) {
+      const auto& [count, entry] = invData;
+      if (count <= 0 || !entry) {
+        continue;
+      }
+
+      if (try_form_has_keyword(item, keyword)) {
+        return item;
+      }
+    }
+
+    return nullptr;
   }
   
   bool try_play_sound_at_impl(const RE::TESObjectREFR* refr, RE::BGSSoundDescriptorForm* descriptor, float volume) 
