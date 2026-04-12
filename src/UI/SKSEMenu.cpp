@@ -1,6 +1,7 @@
 ﻿module;
 
 #include "library/SKSEMenuFramework.h"
+#include <array>
 #include <string>
 
 export module TrueFlasks.UI.SKSEMenu;
@@ -11,6 +12,73 @@ import TrueFlasks.UI.Prisma;
 namespace ui::skse_menu
 {
   using namespace ImGuiMCP;
+
+  struct key_option
+  {
+    std::uint32_t code;
+    const char* label;
+  };
+
+  constexpr auto keyboard_keys = std::to_array<key_option>({
+    key_option{0x00, "None"}, key_option{0x01, "Escape"}, key_option{0x02, "1"}, key_option{0x03, "2"},
+    key_option{0x04, "3"}, key_option{0x05, "4"}, key_option{0x06, "5"}, key_option{0x07, "6"},
+    key_option{0x08, "7"}, key_option{0x09, "8"}, key_option{0x0A, "9"}, key_option{0x0B, "0"},
+    key_option{0x0C, "Minus"}, key_option{0x0D, "Equals"}, key_option{0x0E, "Backspace"}, key_option{0x0F, "Tab"},
+    key_option{0x10, "Q"}, key_option{0x11, "W"}, key_option{0x12, "E"}, key_option{0x13, "R"},
+    key_option{0x14, "T"}, key_option{0x15, "Y"}, key_option{0x16, "U"}, key_option{0x17, "I"},
+    key_option{0x18, "O"}, key_option{0x19, "P"}, key_option{0x1A, "Left Bracket"},
+    key_option{0x1B, "Right Bracket"}, key_option{0x1C, "Enter"}, key_option{0x1D, "Left Ctrl"},
+    key_option{0x1E, "A"}, key_option{0x1F, "S"}, key_option{0x20, "D"}, key_option{0x21, "F"},
+    key_option{0x22, "G"}, key_option{0x23, "H"}, key_option{0x24, "J"}, key_option{0x25, "K"},
+    key_option{0x26, "L"}, key_option{0x27, "Semicolon"}, key_option{0x28, "Apostrophe"},
+    key_option{0x29, "Tilde"}, key_option{0x2A, "Left Shift"}, key_option{0x2B, "Backslash"},
+    key_option{0x2C, "Z"}, key_option{0x2D, "X"}, key_option{0x2E, "C"}, key_option{0x2F, "V"},
+    key_option{0x30, "B"}, key_option{0x31, "N"}, key_option{0x32, "M"}, key_option{0x33, "Comma"},
+    key_option{0x34, "Period"}, key_option{0x35, "Slash"}, key_option{0x36, "Right Shift"},
+    key_option{0x37, "Numpad *"}, key_option{0x38, "Left Alt"}, key_option{0x39, "Space"},
+    key_option{0x3A, "Caps Lock"}, key_option{0x3B, "F1"}, key_option{0x3C, "F2"}, key_option{0x3D, "F3"},
+    key_option{0x3E, "F4"}, key_option{0x3F, "F5"}, key_option{0x40, "F6"}, key_option{0x41, "F7"},
+    key_option{0x42, "F8"}, key_option{0x43, "F9"}, key_option{0x44, "F10"}, key_option{0x45, "Num Lock"},
+    key_option{0x46, "Scroll Lock"}, key_option{0x47, "Numpad 7"}, key_option{0x48, "Numpad 8"},
+    key_option{0x49, "Numpad 9"}, key_option{0x4A, "Numpad -"}, key_option{0x4B, "Numpad 4"},
+    key_option{0x4C, "Numpad 5"}, key_option{0x4D, "Numpad 6"}, key_option{0x4E, "Numpad +"},
+    key_option{0x4F, "Numpad 1"}, key_option{0x50, "Numpad 2"}, key_option{0x51, "Numpad 3"},
+    key_option{0x52, "Numpad 0"}, key_option{0x53, "Numpad ."}, key_option{0x57, "F11"}, key_option{0x58, "F12"},
+    key_option{0x9C, "Numpad Enter"}, key_option{0x9D, "Right Ctrl"}, key_option{0xB5, "Numpad /"},
+    key_option{0xB7, "Print Screen"}, key_option{0xB8, "Right Alt"}, key_option{0xC5, "Pause"},
+    key_option{0xC7, "Home"}, key_option{0xC8, "Up"}, key_option{0xC9, "Page Up"}, key_option{0xCB, "Left"},
+    key_option{0xCD, "Right"}, key_option{0xCF, "End"}, key_option{0xD0, "Down"}, key_option{0xD1, "Page Down"},
+    key_option{0xD2, "Insert"}, key_option{0xD3, "Delete"}
+  });
+
+  const char* get_key_label(const std::uint32_t key)
+  {
+    for (const auto& option : keyboard_keys) {
+      if (option.code == key) {
+        return option.label;
+      }
+    }
+    return "Unknown";
+  }
+
+  bool render_keybind_combo(const char* label, std::uint32_t& key)
+  {
+    bool changed = false;
+    if (ImGui::BeginCombo(label, get_key_label(key))) {
+      for (const auto& option : keyboard_keys) {
+        const bool selected = option.code == key;
+        if (ImGui::Selectable(option.label, selected)) {
+          key = option.code;
+          changed = true;
+        }
+        if (selected) {
+          ImGui::SetItemDefaultFocus();
+        }
+      }
+      ImGui::EndCombo();
+    }
+    return changed;
+  }
 
   void RenderTooltip(const char* desc)
   {
@@ -37,6 +105,9 @@ namespace ui::skse_menu
 
       if (ImGui::Checkbox("Enable for NPC", &settings.npc)) changed = true;
       RenderTooltip("Enable this flask type for NPCs.");
+
+      if (render_keybind_combo("Hotkey", settings.hotkey)) changed = true;
+      RenderTooltip("Keyboard key used to drink this flask type. 'None' disables the hotkey.");
 
       // Notify string handling
       char buffer_notify[512];

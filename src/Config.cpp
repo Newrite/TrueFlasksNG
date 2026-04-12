@@ -15,6 +15,7 @@ namespace config
     bool enable{true};
     bool npc{false};
     bool player{true};
+    std::uint32_t hotkey{0};
     std::string notify{"I can't drink any more potions."};
     bool enable_parallel_cooldown{false};
     bool anti_spam{true};
@@ -121,6 +122,13 @@ namespace config
       }
     }
 
+    void parse_uint32(const std::string& val, std::uint32_t& out)
+    {
+      if (auto res = core::utility::str_to_uint32(val); res.has_value()) {
+        out = *res;
+      }
+    }
+
     void parse_bool(const std::string& val, bool& out)
     {
       if (auto res = core::utility::str_to_int64(val); res.has_value()) {
@@ -218,6 +226,8 @@ namespace config
           parse_bool(collection.get("FlasksNPC"), settings.npc);
         if (collection.has("FlasksPlayer"))
           parse_bool(collection.get("FlasksPlayer"), settings.player);
+        if (collection.has("FlasksHotkey"))
+          parse_uint32(collection.get("FlasksHotkey"), settings.hotkey);
         if (collection.has("FlasksNotify"))
           settings.notify = collection.get("FlasksNotify");
         if (collection.has("FlasksEnableParallelCooldown"))
@@ -269,6 +279,7 @@ namespace config
         ini[section]["FlasksEnable"] = s.enable ? "1" : "0";
         ini[section]["FlasksNPC"] = s.npc ? "1" : "0";
         ini[section]["FlasksPlayer"] = s.player ? "1" : "0";
+        ini[section]["FlasksHotkey"] = std::to_string(s.hotkey);
         ini[section]["FlasksNotify"] = s.notify;
         ini[section]["FlasksEnableParallelCooldown"] =
           s.enable_parallel_cooldown ? "1" : "0";

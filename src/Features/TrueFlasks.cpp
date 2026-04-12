@@ -429,17 +429,45 @@ namespace features::true_flasks
   
   export auto on_input_event(const events::events_ctx::process_event_input_ctx& ctx) 
   {
-    auto key_health_example = 0;
-    if (ctx.key == key_health_example) {
-      auto player = RE::PlayerCharacter::GetSingleton();
-      auto config = config::config_manager::get_singleton();
-      auto health_potion = core::utility::game::get_object_in_inventory_by_keyword(player, config->flasks_health.keyword, RE::FormType::AlchemyItem);
-      if (!health_potion) return;
-      
-      RE::ActorEquipManager::GetSingleton()->EquipObject(player, health_potion);
-      
+    if (!ctx.button_event || !ctx.button_event->IsDown()) {
+      return;
     }
-    
+
+    auto* player = RE::PlayerCharacter::GetSingleton();
+    auto* equip_manager = RE::ActorEquipManager::GetSingleton();
+    auto* config = config::config_manager::get_singleton();
+    if (!player || !equip_manager || !config) {
+      return;
+    }
+
+    if (core::utility::is_any_menu_open() || player->IsDead() || player->IsInKillMove()) {
+      return;
+    }
+
+    const auto try_drink = [&](const std::uint32_t bind_key, const config::flask_settings& settings) {
+      if (bind_key == 0 || ctx.key != bind_key || !settings.enable || !settings.player || !settings.keyword) {
+        return false;
+      }
+
+      auto potion = core::utility::game::get_object_in_inventory_by_keyword(
+        player, settings.keyword, RE::FormType::AlchemyItem);
+      if (!potion) {
+        return false;
+      }
+
+      equip_manager->EquipObject(player, potion);
+      return true;
+    };
+
+    if (try_drink(config->flasks_health.hotkey, config->flasks_health)) {
+      return;
+    }
+
+    if (try_drink(config->flasks_stamina.hotkey, config->flasks_stamina)) {
+      return;
+    }
+
+    try_drink(config->flasks_magick.hotkey, config->flasks_magick);
   }
 
   // API Functions
