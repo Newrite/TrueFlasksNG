@@ -10,6 +10,20 @@ import TrueFlasks.Core.Utility;
 
 namespace config
 {
+  export enum class inventory_mode : int
+  {
+    disabled = 0,
+    use = 1,
+    deposit = 2
+  };
+
+  export enum class inventory_select_mode : int
+  {
+    weakest_first = 0,
+    strongest_first = 1,
+    first_found = 2
+  };
+
   export struct flask_settings_base
   {
     bool enable{true};
@@ -19,6 +33,10 @@ namespace config
     bool enable_parallel_cooldown{false};
     bool anti_spam{true};
     float anti_spam_delay{0.1f};
+
+    inventory_mode inventory_mode_value{inventory_mode::disabled};
+    inventory_select_mode inventory_select_mode_value{inventory_select_mode::first_found};
+    RE::BGSKeyword* inventory_keyword{nullptr};
 
     float regeneration_mult_base{100.0f};
     RE::BGSKeyword* regeneration_mult_keyword{nullptr};
@@ -35,6 +53,10 @@ namespace config
 
   export struct flask_settings : flask_settings_base
   {
+    std::uint32_t hotkey{0};
+    std::uint32_t hotkey_modifier{0};
+    std::uint32_t gamepad_hotkey{0};
+    std::uint32_t gamepad_hotkey_modifier{0};
     RE::BGSKeyword* keyword{nullptr};
   };
 
@@ -118,6 +140,13 @@ namespace config
     {
       if (auto res = core::utility::str_to_int64(val); res.has_value()) {
         out = static_cast<int>(*res);
+      }
+    }
+
+    void parse_uint32(const std::string& val, std::uint32_t& out)
+    {
+      if (auto res = core::utility::str_to_uint32(val); res.has_value()) {
+        out = *res;
       }
     }
 
@@ -259,6 +288,33 @@ namespace config
       settings.fail_audio_form = parse_sound_descriptor(fail_sound);
     }
 
+    void read_inventory_settings(const mINI::INIStructure& ini,
+                                 const std::string& section,
+                                 flask_settings_base& settings)
+    {
+      std::string inventory_kw = "0x800~Mod.esp";
+
+      if (ini.has(section)) {
+        const auto& collection = ini.get(section);
+        if (collection.has("InventoryMode")) {
+          int inventory_mode_raw = static_cast<int>(settings.inventory_mode_value);
+          parse_int(collection.get("InventoryMode"), inventory_mode_raw);
+          inventory_mode_raw = (std::clamp)(inventory_mode_raw, 0, 2);
+          settings.inventory_mode_value = static_cast<inventory_mode>(inventory_mode_raw);
+        }
+        if (collection.has("InventorySelectMode")) {
+          int inventory_select_mode_raw = static_cast<int>(settings.inventory_select_mode_value);
+          parse_int(collection.get("InventorySelectMode"), inventory_select_mode_raw);
+          inventory_select_mode_raw = (std::clamp)(inventory_select_mode_raw, 0, 2);
+          settings.inventory_select_mode_value = static_cast<inventory_select_mode>(inventory_select_mode_raw);
+        }
+        if (collection.has("InventoryKeyword"))
+          inventory_kw = collection.get("InventoryKeyword");
+      }
+
+      settings.inventory_keyword = parse_keyword(inventory_kw);
+    }
+
     void populate_ini(mINI::INIStructure& ini)
     {
       ini["TrueFlasksNG"]["NoRemoveKeyword"] =
@@ -275,6 +331,10 @@ namespace config
         ini[section]["FlasksAntiSpam"] = s.anti_spam ? "1" : "0";
         ini[section]["FlasksAntiSpamDelay"] =
           std::format("{:.1f}", s.anti_spam_delay);
+        ini[section]["InventoryMode"] = std::to_string(static_cast<int>(s.inventory_mode_value));
+        ini[section]["InventorySelectMode"] = std::to_string(static_cast<int>(s.inventory_select_mode_value));
+        ini[section]["InventoryKeyword"] =
+          keyword_to_string(s.inventory_keyword, "0x800~Mod.esp");
 
         ini[section]["FlasksRegenerationMultBase"] =
           std::format("{:.1f}", s.regeneration_mult_base);
@@ -301,6 +361,10 @@ namespace config
       auto write_flask_full = [&](const std::string& section,
                                   const flask_settings& s) {
         write_flask(section, s);
+        ini[section]["FlasksHotkey"] = std::to_string(s.hotkey);
+        ini[section]["FlasksHotkeyModifier"] = std::to_string(s.hotkey_modifier);
+        ini[section]["FlasksGamepadHotkey"] = std::to_string(s.gamepad_hotkey);
+        ini[section]["FlasksGamepadHotkeyModifier"] = std::to_string(s.gamepad_hotkey_modifier);
         ini[section]["FlasksKeyword"] =
           keyword_to_string(s.keyword, "0x800~Mod.esp");
       };
@@ -315,24 +379,24 @@ namespace config
       ini["PrismaWidget"]["AlwaysShowInCombat"] =
         prisma_widget.always_show_in_combat ? "1" : "0";
       ini["PrismaWidget"]["PrismaPositionX"] =
-        std::format("{:.2f}", prisma_widget.x);
+        std::format("{:.3f}", prisma_widget.x);
       ini["PrismaWidget"]["PrismaPositionY"] =
-        std::format("{:.2f}", prisma_widget.y);
+        std::format("{:.3f}", prisma_widget.y);
       ini["PrismaWidget"]["PrismaSize"] =
-        std::format("{:.2f}", prisma_widget.size);
+        std::format("{:.3f}", prisma_widget.size);
       ini["PrismaWidget"]["PrismaOpacity"] =
-        std::format("{:.2f}", prisma_widget.opacity);
+        std::format("{:.3f}", prisma_widget.opacity);
       ini["PrismaWidget"]["PrismaAnchorAllElements"] =
         prisma_widget.anchor_all_elements ? "1" : "0";
 
       auto write_prisma_flask = [&](const std::string& prefix,
                                     const std::string& type,
                                     const prisma_flask_widget_settings& s) {
-        ini["PrismaWidget"][prefix + "X"] = std::format("{:.2f}", s.x);
-        ini["PrismaWidget"][prefix + "Y"] = std::format("{:.2f}", s.y);
-        ini["PrismaWidget"][prefix + "Size"] = std::format("{:.2f}", s.size);
+        ini["PrismaWidget"][prefix + "X"] = std::format("{:.3f}", s.x);
+        ini["PrismaWidget"][prefix + "Y"] = std::format("{:.3f}", s.y);
+        ini["PrismaWidget"][prefix + "Size"] = std::format("{:.3f}", s.size);
         ini["PrismaWidget"][prefix + "Opacity"] =
-          std::format("{:.2f}", s.opacity);
+          std::format("{:.3f}", s.opacity);
 
         ini["PrismaWidget"]["PrismaFlasksFillAnimation" + type] =
           s.fill_animation ? "1" : "0";
@@ -397,6 +461,7 @@ namespace config
 
       // [FlasksOther]
       read_flask_base(ini, "FlasksOther", flasks_other);
+      read_inventory_settings(ini, "FlasksOther", flasks_other);
       std::string exclusive_kw = "0x800~Mod.esp";
       if (ini.has("FlasksOther")) {
         const auto& sec = ini.get("FlasksOther");
@@ -411,9 +476,18 @@ namespace config
       auto read_flask_full = [&](const std::string& section,
                                  flask_settings& settings) {
         read_flask_base(ini, section, settings);
+        read_inventory_settings(ini, section, settings);
         std::string kw = "0x800~Mod.esp";
         if (ini.has(section)) {
           const auto& sec = ini.get(section);
+          if (sec.has("FlasksHotkey"))
+            parse_uint32(sec.get("FlasksHotkey"), settings.hotkey);
+          if (sec.has("FlasksHotkeyModifier"))
+            parse_uint32(sec.get("FlasksHotkeyModifier"), settings.hotkey_modifier);
+          if (sec.has("FlasksGamepadHotkey"))
+            parse_uint32(sec.get("FlasksGamepadHotkey"), settings.gamepad_hotkey);
+          if (sec.has("FlasksGamepadHotkeyModifier"))
+            parse_uint32(sec.get("FlasksGamepadHotkeyModifier"), settings.gamepad_hotkey_modifier);
           if (sec.has("FlasksKeyword"))
             kw = sec.get("FlasksKeyword");
         }
@@ -476,79 +550,149 @@ namespace config
       logger::info("Configuration loaded successfully.");
     }
 
-    // Функция для сохранения с сохранением комментариев
+    [[nodiscard]] auto try_parse_section_name(const std::string& line) const
+      -> std::optional<std::string>
+    {
+      const auto trimmed = core::utility::strings::trim(line);
+      if (trimmed.size() < 3 || trimmed.front() != '[')
+        return std::nullopt;
+
+      const auto end_pos = trimmed.find(']');
+      if (end_pos == std::string::npos || end_pos <= 1)
+        return std::nullopt;
+
+      return core::utility::strings::trim(trimmed.substr(1, end_pos - 1));
+    }
+
+    [[nodiscard]] auto is_key_value_line(const std::string& line) const -> bool
+    {
+      const auto trimmed = core::utility::strings::trim(line);
+      if (trimmed.empty() || trimmed.front() == ';' || trimmed.front() == '[')
+        return false;
+
+      return line.find('=') != std::string::npos;
+    }
+
+    auto rewrite_key_value_line(const std::string& line,
+                                const std::string& section,
+                                const mINI::INIStructure& data) const
+      -> std::string
+    {
+      if (!data.has(section))
+        return line;
+
+      const auto eq_pos = line.find('=');
+      if (eq_pos == std::string::npos)
+        return line;
+
+      const auto key = core::utility::strings::trim(line.substr(0, eq_pos));
+      if (key.empty() || !data.get(section).has(key))
+        return line;
+
+      auto value_start = eq_pos + 1;
+      while (value_start < line.size() &&
+             (line[value_start] == ' ' || line[value_start] == '\t')) {
+        value_start++;
+      }
+
+      const auto comment_pos = line.find(';', value_start);
+      const auto prefix = line.substr(0, value_start);
+      std::string comment;
+      if (comment_pos != std::string::npos) {
+        auto comment_start = comment_pos;
+        while (comment_start > value_start &&
+               (line[comment_start - 1] == ' ' || line[comment_start - 1] == '\t')) {
+          comment_start--;
+        }
+        comment = line.substr(comment_start);
+      }
+
+      return prefix + data.get(section).get(key) + comment;
+    }
+
+    void append_missing_keys_for_section(std::vector<std::string>& output,
+                                         const std::string& section,
+                                         const mINI::INIStructure& original,
+                                         const mINI::INIStructure& data) const
+    {
+      if (section.empty() || !original.has(section) || !data.has(section))
+        return;
+
+      const auto original_section = original.get(section);
+      const auto data_section = data.get(section);
+      auto insertion_pos = output.size();
+      while (insertion_pos > 0) {
+        const auto trimmed = core::utility::strings::trim(output[insertion_pos - 1]);
+        if (trimmed.empty() || trimmed.front() == ';') {
+          insertion_pos--;
+          continue;
+        }
+        break;
+      }
+
+      std::vector<std::string> missing_lines;
+      for (const auto& [key, value] : data_section) {
+        if (!original_section.has(key)) {
+          missing_lines.emplace_back(key + " = " + value);
+        }
+      }
+
+      output.insert(output.begin() + static_cast<std::ptrdiff_t>(insertion_pos),
+                    missing_lines.begin(),
+                    missing_lines.end());
+    }
+
     bool save_ini_preserving_comments(const std::filesystem::path& path,
-                                      mINI::INIStructure& data)
+                                      const mINI::INIStructure& original,
+                                      const mINI::INIStructure& data) const
     {
       std::ifstream file_in(path);
       if (!file_in.is_open())
         return false;
 
-      std::vector<std::string> lines;
+      std::vector<std::string> output;
       std::string line;
       std::string current_section;
 
-      // Регулярка для поиска секций: [SectionName]
-      std::regex section_regex(R"(^\s*\[([^\]]+)\])");
-      // Регулярка для поиска ключей: Key = Value (и захват комментария после ;)
-      // Группа 1: Всё до значения (ключ + =)
-      // Группа 2: Значение (до ; или конца строки)
-      // Группа 3: Остаток строки (комментарий)
-      std::regex key_regex(R"(^(\s*[^=;]+\s*=\s*)([^;]*)(.*))");
-
-      std::smatch match;
-
       while (std::getline(file_in, line)) {
-        // 1. Проверяем, не началась ли новая секция
-        if (std::regex_search(line, match, section_regex)) {
-          current_section = match[1];
-          lines.push_back(line);
+        if (const auto section = try_parse_section_name(line); section.has_value()) {
+          append_missing_keys_for_section(output, current_section, original, data);
+          current_section = *section;
+          output.push_back(line);
           continue;
         }
 
-        // 2. Если мы внутри секции, ищем ключи
-        if (!current_section.empty() &&
-            std::regex_search(line, match, key_regex)) {
-          std::string full_part_before = match[1].str();
-          std::string key_part =
-            full_part_before.substr(0, full_part_before.find('='));
-          std::string key = core::utility::strings::trim(key_part);
-
-          std::string comments =
-            match[3].str(); // Сохраняем комментарии в конце строки
-
-          // Если такой ключ есть в наших новых данных
-          if (data.has(current_section) && data[current_section].has(key)) {
-            std::string new_value = data[current_section][key];
-
-            // Формируем новую строку: "Ключ = " + "НовоеЗначение" + " ;
-            // Комментарий"
-            std::string new_line = match[1].str() + new_value + comments;
-            lines.push_back(new_line);
-
-            // (Опционально) Можно помечать ключ как записанный, чтобы потом
-            // добавить новые, если их не было в файле. Но для простого конфига
-            // это часто лишнее.
-          }
-          else {
-            // Если ключа нет в новых данных (или удален), оставляем как есть
-            lines.push_back(line);
-          }
+        if (!current_section.empty() && is_key_value_line(line)) {
+          output.push_back(rewrite_key_value_line(line, current_section, data));
+          continue;
         }
-        else {
-          // Комментарии и пустые строки просто копируем
-          lines.push_back(line);
-        }
+
+        output.push_back(line);
       }
       file_in.close();
 
-      // 3. Записываем обновленные строки обратно в файл
+      append_missing_keys_for_section(output, current_section, original, data);
+
+      for (const auto& [section, collection] : data) {
+        if (original.has(section))
+          continue;
+
+        if (!output.empty() && !output.back().empty()) {
+          output.emplace_back();
+        }
+
+        output.emplace_back("[" + section + "]");
+        for (const auto& [key, value] : collection) {
+          output.emplace_back(key + " = " + value);
+        }
+      }
+
       std::ofstream file_out(path);
       if (!file_out.is_open())
         return false;
 
-      for (const auto& l : lines) {
-        file_out << l << "\n";
+      for (const auto& out_line : output) {
+        file_out << out_line << "\n";
       }
 
       return true;
@@ -558,25 +702,23 @@ namespace config
     {
       std::lock_guard<std::mutex> lock(mutex_);
 
-      // 1. Сначала подготавливаем данные как обычно
+      // Populate fresh values before deciding how to write the file.
       mINI::INIFile file(config_path_);
       mINI::INIStructure ini;
 
-      // Если файла нет, mINI должен его создать с нуля (тогда комментариев всё
-      // равно нет) Поэтому сначала проверяем чтение
+      // Read first so we know whether an existing file needs comment preservation.
       bool file_exists = file.read(ini);
+      const auto original_ini = ini;
 
       populate_ini(ini);
 
       bool success = false;
 
       if (file_exists) {
-        // 2. Если файл существует — используем наш умный метод сохранения
-        success = save_ini_preserving_comments(config_path_, ini);
+        success = save_ini_preserving_comments(config_path_, original_ini, ini);
       }
       else {
-        // 3. Если файла нет — создаем новый стандартным методом (комментариев
-        // терять не жалко)
+        // Create a fresh INI when there is nothing to preserve yet.
         success = file.generate(ini, true);
       }
 
@@ -589,11 +731,4 @@ namespace config
     }
   };
 
-  export void
-  on_menu_event(const events::events_ctx::process_event_menu_ctx& ctx)
-  {
-    if (!ctx.is_opening && ctx.menu_name == RE::JournalMenu::MENU_NAME) {
-      config_manager::get_singleton()->load();
-    }
-  }
 } // namespace config

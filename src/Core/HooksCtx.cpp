@@ -8,7 +8,7 @@ namespace core::hooks_ctx
     float delta;
   };
 
-  // ExtraList может быть нуллом, т.к. далеко не все объекты несут в себе дополнительную рантайм информацию
+  // ExtraList may be null because many objects do not carry runtime extra data.
   export struct on_actor_drink_potion final
   {
     RE::Character* actor;

@@ -38,7 +38,7 @@ namespace core::actors_cache
         float cooldown_current;
       };
 
-      static constexpr auto FLASK_ARRAY_SIZE = 64;
+      static constexpr auto FLASK_ARRAY_SIZE = 99;
       static constexpr auto FLASK_TYPE_SIZE = 4;
       flask_cooldown flasks_health[FLASK_ARRAY_SIZE];
       flask_cooldown flasks_magick[FLASK_ARRAY_SIZE];
@@ -48,6 +48,7 @@ namespace core::actors_cache
       float anti_spam_durations[FLASK_TYPE_SIZE]{0.f};
       // 0 - Health, 1 - Stamina, 2 - Magick, 3 - Other
       bool failed_drink_types[FLASK_TYPE_SIZE]{false, false, false, false};
+      int last_inventory_counts[FLASK_TYPE_SIZE]{-1, -1, -1, -1};
 
       std::uint64_t last_tick{GetTickCount64()};
 
@@ -145,8 +146,8 @@ namespace core::actors_cache
           }
 
           for (size_t i = 0; i < size; ++i) {
-            RE::FormID form_id;
-            if (!a_interface->ReadRecordData(form_id)) {
+            RE::FormID saved_form_id;
+            if (!a_interface->ReadRecordData(saved_form_id)) {
               break;
             }
 
@@ -154,7 +155,12 @@ namespace core::actors_cache
             if (!a_interface->ReadRecordData(data)) {
               break;
             }
-            actors_cache_[form_id] = data;
+            
+            RE::FormID resolved_form_id;
+            if (!a_interface->ResolveFormID(saved_form_id, resolved_form_id)) {
+              continue;
+            }
+            actors_cache_[resolved_form_id] = data;
           }
         }
       }

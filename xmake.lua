@@ -24,13 +24,13 @@ set_policy("package.requires_lock", true)
 set_policy("check.auto_ignore_flags", false)
 
 -- set configs
-set_config("skyrim_vr", false)
-set_config("skyrim_ae", false)
+set_config("skyrim_vr", true)
+set_config("skyrim_ae", true)
 set_config("skyrim_se", true)
 set_config("skse_xbyak", true)
 
 rule("prisma_ui_resources")
-    set_extensions(".html", ".css", ".js", ".svg")
+    set_extensions(".html", ".css", ".js", ".svg", ".ttf")
     
 
 -- targets
@@ -55,12 +55,12 @@ set_policy("build.c++.modules", true)
 -- add src files
 add_includedirs("src")
 set_pcxxheader("src/pch.h")
-add_headerfiles("src/**.h", "src/**.hpp", "src/**.html", "src/**.js", "src/**.css", "src/**.svg")
+add_headerfiles("src/**.h", "src/**.hpp", "src/**.html", "src/**.js", "src/**.css", "src/**.svg", "src/**.ttf")
 add_files("src/**.cpp")
 
 after_build(function(target)
     local copy = function(env_path, ext)
-        -- env_path может содержать несколько путей через ";"
+        -- env_path may contain multiple paths separated by ";".
         for _, path_item in pairs(env_path:split(";")) do
             if os.exists(path_item) then
                 local plugins = path.join(path_item, ext, "SKSE/Plugins")
@@ -71,23 +71,23 @@ after_build(function(target)
         end
     end
 
-    -- Формируем относительный путь к папке dist внутри папки TrueFlasksNG
+    -- Build the dist path inside the project root.
     local dist_path = path.join(os.projectdir(), "dist")
 
-    -- 1. Очищаем папку dist
+    -- Clear dist before copying fresh build output.
     if os.exists(dist_path) then
-        os.rm(path.join(dist_path, "*")) -- Удаляем содержимое
+        os.rm(path.join(dist_path, "*")) -- Remove existing contents.
     else
         os.mkdir(dist_path)
     end
 
-    -- 2. Копируем скомпилированные файлы (dll/pdb) в корень dist
+    -- Copy compiled plugin binaries into the dist root.
     copy(dist_path, "")
 
-    -- 3. Копируем папку с UI
+    -- Copy UI assets into dist.
     local prisma_ui_views_path = path.join(dist_path, "PrismaUI", "views")
     os.mkdir(prisma_ui_views_path)
 
-    -- Путь "src/UI/views" считается автоматически от корня проекта (projectdir)
+    -- Resolve src/UI/views relative to the project root.
     os.trycp(path.join(os.projectdir(), "src/UI/views/*"), prisma_ui_views_path)
 end)

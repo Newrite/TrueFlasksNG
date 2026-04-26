@@ -64,11 +64,18 @@ namespace core::hooks
       
       // Push all flask data, but only every 0.1 s
       static float delta_counter = 0.f;
+      static float delta_counter_1s = 0.f;
       delta_counter += delta;
+      delta_counter_1s += delta;
       if (delta_counter >= 0.1f) {
         delta_counter = 0.f;
         ui::prisma::update(ctx);
         features::true_flasks::update_ui(ctx);
+      }
+      
+      if (delta_counter_1s >= 1.f) {
+        delta_counter_1s = 0.f;
+        features::true_flasks::update_1s(ctx);
       }
 
       on_update(ctx);
@@ -76,7 +83,7 @@ namespace core::hooks
       return on_update_player_character_original(character, delta);
     }
 
-    // ExtraList может быть нуллом, т.к. далеко не все объекты несут в себе дополнительную рантайм информацию
+    // ExtraList may be null because many objects do not carry runtime extra data.
     static auto on_drink_potion(RE::Character* character, RE::AlchemyItem* potion,
                                 RE::ExtraDataList* extra_list) -> bool
     {

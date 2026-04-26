@@ -323,7 +323,7 @@ namespace core::utility
       return "NULL_FORM";
     }
 
-    return std::format("{:#x}~{}", is_local_id ? form->GetLocalFormID() : form->GetFormID(), form->GetFile()->fileName);
+    return std::format("{:#x}~{}", is_local_id ? form->GetLocalFormID() : form->GetFormID(), form->GetFile(0)->fileName);
   }
 
   export auto get_actor_from_ni_actor(RE::NiPointer<RE::Actor>& ni_actor) -> RE::Actor*
@@ -606,6 +606,98 @@ namespace core::utility::game
     return func(NULL, NULL, target, object, count, persistent, disabled);
   }
   
+  export auto get_item_count(RE::TESObjectREFR* a_container, RE::FormID a_formID) -> std::int32_t
+  {
+    std::int32_t iResult = 0;
+
+    auto invChanges = a_container->GetInventoryChanges();
+    if (invChanges && invChanges->entryList) {
+      for (auto& entry : *invChanges->entryList) {
+        if (entry && entry->object && entry->object->formID == a_formID) {
+          if (entry->IsLeveled()) {
+            return entry->countDelta > 0 ? entry->countDelta : 0;
+          } else {
+            iResult = entry->countDelta;
+            break;
+          }
+        }
+      }
+    }
+
+    auto container = a_container->GetContainer();
+    if (container) {
+      container->ForEachContainerObject([&](RE::ContainerObject& a_entry) {
+        if (a_entry.obj && a_entry.obj->formID == a_formID) {
+          iResult += a_entry.count;
+          return RE::BSContainer::ForEachResult::kStop;
+        }
+        return RE::BSContainer::ForEachResult::kContinue;
+      });
+    }
+
+    return iResult > 0 ? iResult : 0;
+  }
+  
+  export auto get_item_count_with_keyword(RE::TESObjectREFR* a_container, const RE::FormType form_type, const RE::BGSKeyword* keyword) -> std::int32_t
+  {
+    std::int32_t iResult = 0;
+    
+    if (!a_container || !keyword) {
+      return iResult;
+    }
+
+    auto invChanges = a_container->GetInventoryChanges();
+    if (invChanges && invChanges->entryList) {
+      for (auto& entry : *invChanges->entryList) {
+        if (entry && entry->object && entry->object->GetFormType() == form_type && try_form_has_keyword(entry->object, keyword)) {
+          if (entry->IsLeveled()) {
+            return entry->countDelta > 0 ? entry->countDelta : 0;
+          } else {
+            iResult = entry->countDelta;
+            break;
+          }
+        }
+      }
+    }
+
+    auto container = a_container->GetContainer();
+    if (container) {
+      container->ForEachContainerObject([&](RE::ContainerObject& a_entry) {
+        if (a_entry.obj && a_entry.obj->GetFormType() == form_type && try_form_has_keyword(a_entry.obj, keyword)) {
+          iResult += a_entry.count;
+          return RE::BSContainer::ForEachResult::kStop;
+        }
+        return RE::BSContainer::ForEachResult::kContinue;
+      });
+    }
+
+    return iResult > 0 ? iResult : 0;
+  }
+  
+  export auto get_object_in_inventory_by_keyword(RE::Actor* actor, const RE::BGSKeyword* keyword, const RE::FormType formType) -> RE::TESBoundObject*
+  {
+    if (!actor || !keyword) {
+      return nullptr;
+    }
+
+    const auto inv = actor->GetInventory([formType](RE::TESBoundObject& object) {
+        return object.GetFormType() == formType;
+    });
+
+    for (const auto& [item, invData] : inv) {
+      const auto& [count, entry] = invData;
+      if (count <= 0 || !entry) {
+        continue;
+      }
+
+      if (try_form_has_keyword(item, keyword)) {
+        return item;
+      }
+    }
+
+    return nullptr;
+  }
+  
   bool try_play_sound_at_impl(const RE::TESObjectREFR* refr, RE::BGSSoundDescriptorForm* descriptor, float volume) 
   {
     if (!refr || !descriptor) return false;
@@ -616,7 +708,8 @@ namespace core::utility::game
     sound.state = RE::BSSoundHandle::AssumedState::kPlaying;
 
     if (const auto manager = RE::BSAudioManager::GetSingleton()) {
-      if (!manager->BuildSoundDataFromDescriptor(sound, descriptor)) {
+      
+      if (!manager->GetSoundHandle(sound, descriptor)) {
         return false;
       }
 
