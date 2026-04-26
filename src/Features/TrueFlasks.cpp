@@ -949,12 +949,11 @@ namespace features::true_flasks
 
       switch (device) {
       case RE::INPUT_DEVICE::kGamepad:
-        return static_cast<RE::BSInputDevice*>(
-          input_manager->devices[static_cast<std::size_t>(RE::INPUT_DEVICE::kGamepad)]);
+        return input_manager->GetGamepad();
       case RE::INPUT_DEVICE::kKeyboard:
-      default:
-        return static_cast<RE::BSInputDevice*>(
-          input_manager->devices[static_cast<std::size_t>(RE::INPUT_DEVICE::kKeyboard)]);
+        return input_manager->GetKeyboard();
+      default: 
+        return nullptr;
       }
     };
 
@@ -968,7 +967,7 @@ namespace features::true_flasks
           return ctx.key == settings.gamepad_hotkey;
         }
 
-        auto* input_device = get_input_device(RE::INPUT_DEVICE::kGamepad);
+        auto input_device = get_input_device(ctx.device);
         return input_device && ctx.key == settings.gamepad_hotkey_modifier &&
                input_device->IsPressed(settings.gamepad_hotkey);
       }
@@ -981,7 +980,7 @@ namespace features::true_flasks
         return ctx.key == settings.hotkey;
       }
 
-      auto* input_device = get_input_device(RE::INPUT_DEVICE::kKeyboard);
+      auto* input_device = get_input_device(ctx.device);
       return input_device && ctx.key == settings.hotkey_modifier &&
              input_device->IsPressed(settings.hotkey);
     };
