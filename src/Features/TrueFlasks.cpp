@@ -975,9 +975,11 @@ namespace features::true_flasks
           return false;
         }
 
+        // ctx.key is already translated to SKSE gamepad keycodes, but IsPressed
+        // expects native device masks, so convert the modifier back before the check
         auto input_device = get_input_device(ctx.device);
-        return input_device && ctx.key == settings.gamepad_hotkey_modifier &&
-               input_device->IsPressed(settings.gamepad_hotkey);
+        return input_device && ctx.key == settings.gamepad_hotkey &&
+               input_device->IsPressed(SKSE::InputMap::GamepadKeycodeToMask(settings.gamepad_hotkey_modifier));
       }
 
       if (!is_valid_hotkey(settings.hotkey)) {
@@ -993,8 +995,8 @@ namespace features::true_flasks
       }
 
       auto* input_device = get_input_device(ctx.device);
-      return input_device && ctx.key == settings.hotkey_modifier &&
-             input_device->IsPressed(settings.hotkey);
+      return input_device && ctx.key == settings.hotkey &&
+             input_device->IsPressed(settings.hotkey_modifier);
     };
 
     const auto try_drink = [&](const config::flask_settings& settings) {

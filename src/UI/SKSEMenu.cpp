@@ -64,6 +64,8 @@ namespace ui::skse_menu
       key_option{SKSE::InputMap::kGamepadButtonOffset_RIGHT_THUMB, "Right Stick"},
       key_option{SKSE::InputMap::kGamepadButtonOffset_LEFT_SHOULDER, "LB"},
       key_option{SKSE::InputMap::kGamepadButtonOffset_RIGHT_SHOULDER, "RB"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_LT, "LT"},
+      key_option{SKSE::InputMap::kGamepadButtonOffset_RT, "RT"},
       key_option{SKSE::InputMap::kGamepadButtonOffset_A, "A"},
       key_option{SKSE::InputMap::kGamepadButtonOffset_B, "B"},
       key_option{SKSE::InputMap::kGamepadButtonOffset_X, "X"},
@@ -278,13 +280,13 @@ namespace ui::skse_menu
       RenderTooltip("Keyboard key used to drink this flask type. 'None' disables the keyboard hotkey.");
 
       if (render_keybind_combo("Keyboard Modifier", settings.hotkey_modifier)) changed = true;
-      RenderTooltip("Optional keyboard modifier that must be held together with the keyboard hotkey. 'None' disables the modifier.");
+      RenderTooltip("Optional keyboard modifier: hold it, then press the keyboard hotkey. 'None' disables the modifier.");
 
       if (render_gamepad_keybind_combo("Gamepad Hotkey", settings.gamepad_hotkey)) changed = true;
       RenderTooltip("Gamepad button used to drink this flask type. 'None' disables the gamepad hotkey.");
 
       if (render_gamepad_keybind_combo("Gamepad Modifier", settings.gamepad_hotkey_modifier)) changed = true;
-      RenderTooltip("Optional gamepad modifier that must be held together with the gamepad hotkey. 'None' disables the modifier.");
+      RenderTooltip("Optional gamepad modifier: hold it, then press the gamepad hotkey. 'None' disables the modifier.");
 
       render_inventory_settings(settings, changed);
 
