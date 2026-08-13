@@ -132,20 +132,22 @@ namespace core::utility
 
   export auto str_to_uint32(const std::string& hex_str) -> std::expected<uint32_t, string_to_number_error>
   {
+    if (strings::trim_left(hex_str).starts_with('-')) {
+      return std::unexpected(string_to_number_error::invalid_string);
+    }
+
     char* endptr;
     errno = 0;
-    const uint32_t value = strtol(hex_str.c_str(), &endptr, 0);
+    const auto value = strtoul(hex_str.c_str(), &endptr, 0);
 
-    if (errno == ERANGE || value > (std::numeric_limits<uint32_t>::max()) || value < (std::numeric_limits<
-          uint32_t>::min())) {
+    if (errno == ERANGE || value > (std::numeric_limits<uint32_t>::max())) {
       return std::unexpected(string_to_number_error::out_of_range);
     }
 
     if (*endptr != '\0') {
       return std::unexpected(string_to_number_error::invalid_string);
     }
-
-    return value;
+    return static_cast<uint32_t>(value);
   }
 
   export auto str_to_uint16(const std::string& hex_str) -> std::expected<uint16_t, string_to_number_error>
@@ -182,8 +184,7 @@ namespace core::utility
 
     return static_cast<float>(value);
   }
-
-
+  
   export auto resolved_form_id_from_string(
     const std::string& line) -> std::expected<resolved_form_id, resolve_form_id_error>
   {
@@ -287,7 +288,7 @@ namespace core::utility
     }
     
     const char* fileName = "NullFile";
-    if (const auto file = form->GetFile()) {
+    if (const auto file = form->GetFile(0)) {
       fileName = file->fileName;
     }
     

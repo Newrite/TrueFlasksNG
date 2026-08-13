@@ -957,9 +957,13 @@ namespace features::true_flasks
       }
     };
 
+    const auto is_valid_hotkey = [](const std::uint32_t key) {
+      return key != 0 && key != static_cast<std::uint32_t>(-1);
+    };
+
     const auto matches_binding = [&](const config::flask_settings& settings) {
       if (ctx.device == RE::INPUT_DEVICE::kGamepad) {
-        if (settings.gamepad_hotkey == 0) {
+        if (!is_valid_hotkey(settings.gamepad_hotkey)) {
           return false;
         }
 
@@ -967,17 +971,25 @@ namespace features::true_flasks
           return ctx.key == settings.gamepad_hotkey;
         }
 
+        if (!is_valid_hotkey(settings.gamepad_hotkey_modifier)) {
+          return false;
+        }
+
         auto input_device = get_input_device(ctx.device);
         return input_device && ctx.key == settings.gamepad_hotkey_modifier &&
                input_device->IsPressed(settings.gamepad_hotkey);
       }
 
-      if (settings.hotkey == 0) {
+      if (!is_valid_hotkey(settings.hotkey)) {
         return false;
       }
 
       if (settings.hotkey_modifier == 0) {
         return ctx.key == settings.hotkey;
+      }
+
+      if (!is_valid_hotkey(settings.hotkey_modifier)) {
+        return false;
       }
 
       auto* input_device = get_input_device(ctx.device);

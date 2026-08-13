@@ -31,15 +31,15 @@ set_config("skse_xbyak", true)
 
 rule("prisma_ui_resources")
     set_extensions(".html", ".css", ".js", ".svg", ".ttf")
-    
+
 
 -- targets
 target("TrueFlasksNG")
     add_packages("glaze")
-    
+
     -- add dependencies to target
     add_deps("commonlibsse-ng")
-    
+
 
     -- add commonlibsse-ng plugin
     add_rules("commonlibsse-ng.plugin", {
@@ -57,37 +57,3 @@ add_includedirs("src")
 set_pcxxheader("src/pch.h")
 add_headerfiles("src/**.h", "src/**.hpp", "src/**.html", "src/**.js", "src/**.css", "src/**.svg", "src/**.ttf")
 add_files("src/**.cpp")
-
-after_build(function(target)
-    local copy = function(env_path, ext)
-        -- env_path may contain multiple paths separated by ";".
-        for _, path_item in pairs(env_path:split(";")) do
-            if os.exists(path_item) then
-                local plugins = path.join(path_item, ext, "SKSE/Plugins")
-                os.mkdir(plugins)
-                os.trycp(target:targetfile(), plugins)
-                os.trycp(target:symbolfile(), plugins)
-            end
-        end
-    end
-
-    -- Build the dist path inside the project root.
-    local dist_path = path.join(os.projectdir(), "dist")
-
-    -- Clear dist before copying fresh build output.
-    if os.exists(dist_path) then
-        os.rm(path.join(dist_path, "*")) -- Remove existing contents.
-    else
-        os.mkdir(dist_path)
-    end
-
-    -- Copy compiled plugin binaries into the dist root.
-    copy(dist_path, "")
-
-    -- Copy UI assets into dist.
-    local prisma_ui_views_path = path.join(dist_path, "PrismaUI", "views")
-    os.mkdir(prisma_ui_views_path)
-
-    -- Resolve src/UI/views relative to the project root.
-    os.trycp(path.join(os.projectdir(), "src/UI/views/*"), prisma_ui_views_path)
-end)
