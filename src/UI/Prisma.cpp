@@ -176,6 +176,22 @@ namespace ui::prisma
 
     api->InteropCall(view, "setWidgetSettings", json.c_str());
   }
+  
+  void on_console_message(PrismaView, PRISMA_UI_API::ConsoleMessageLevel level, const char* message)
+  {
+    const auto* text = message ? message : "<null>";
+    switch (level) {
+    case PRISMA_UI_API::ConsoleMessageLevel::Error:
+      logger::error("[JS] {}", text);
+      break;
+    case PRISMA_UI_API::ConsoleMessageLevel::Warning:
+      logger::warn("[JS] {}", text);
+      break;
+    default:
+      logger::info("[JS] {}", text);
+      break;
+    }
+  }
 
   void on_dom_ready(PrismaView)
   {
@@ -205,6 +221,14 @@ namespace ui::prisma
 
     if (view) {
       logger::info("TrueFlasksNG view created successfully.");
+
+      if (auto api_v2 = core::mods_api_repository::get_prisma_ui_v2()) {
+        api_v2->RegisterConsoleCallback(view, on_console_message);
+        logger::info("JS console callback registered for TrueFlasksNG view.");
+      }
+      else {
+        logger::warn("PrismaUI V2 interface unavailable, JS console output will not be logged.");
+      }
     }
     else {
       logger::error("Failed to create TrueFlasksNG view.");

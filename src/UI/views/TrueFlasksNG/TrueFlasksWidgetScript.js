@@ -19,6 +19,16 @@ const flasks = [
 ];
 
 const flaskElements = {};
+
+// Diagnostics helper: updateFlaskData runs every frame, so failures must not spam the log.
+const warnedKeys = new Set();
+
+function warnOnce(key, message) {
+    if (warnedKeys.has(key)) return;
+    warnedKeys.add(key);
+    console.error(message);
+}
+
 let globalSettings = {auto_hide: false, opacity: 1.0, always_show_in_combat: false};
 let currentCustomFont = '';
 
@@ -35,14 +45,25 @@ function getFlaskVisibleOpacity(flaskConfig) {
 
 function initFlask(item) {
     const obj = document.getElementById(item.id);
-    if (!obj) return;
+    if (!obj) {
+        console.error(`initFlask: element #${item.id} not found`);
+        return;
+    }
 
     obj.style.setProperty('--glow-color', item.color);
+
+    // The <object> exposes a blank placeholder document before the real SVG arrives, so
+    // "contentDocument exists" is not enough - the viewBox is what proves the SVG is in.
+    const getReadySvgDoc = () => {
+        const svgDoc = obj.contentDocument;
+        const svgRoot = svgDoc && svgDoc.documentElement;
+        return (svgRoot && svgRoot.getAttribute('viewBox')) ? svgDoc : null;
+    };
 
     const setupSvg = () => {
         if (flaskElements[item.type]) return;
 
-        const svgDoc = obj.contentDocument;
+        const svgDoc = getReadySvgDoc();
         if (!svgDoc) return;
 
         const svgRoot = svgDoc.documentElement;
@@ -82,17 +103,29 @@ function initFlask(item) {
             maxSlots: -1,
             visibleUntil: 0
         };
+
+        if (!flaskElements[item.type].fillRect) {
+            console.error(`initFlask: #${item.id} svg has no #flask-fill-rect`);
+        }
     };
 
-    if (obj.contentDocument && obj.contentDocument.documentElement) {
-        setupSvg();
-    } else {
+    setupSvg();
+
+    // Always arm the load listener too: the SVG may still be in flight, and registering it
+    // only in an else-branch is what left flasks permanently dead when the timing shifted.
+    if (!flaskElements[item.type] && !obj.dataset.flaskListenerArmed) {
+        obj.dataset.flaskListenerArmed = 'true';
         obj.addEventListener('load', setupSvg);
+        obj.addEventListener('error', () => console.error(`initFlask: failed to load ${obj.getAttribute('data')}`));
     }
 }
 
 window.firstInitDom = () => {
     flasks.forEach(initFlask);
+    const ready = flasks.filter(f => flaskElements[f.type]).length;
+    if (ready < flasks.length) {
+        console.log(`firstInitDom: only ${ready}/${flasks.length} flasks ready, waiting for the rest`);
+    }
 }
 
 window.setWidgetSettings = (settingsJson) => {
@@ -213,11 +246,15 @@ window.updateFlaskData = (args) => {
         animationFillOnlyZero = params.fill_animation_only_zero;
         in_combat = params.in_combat;
     } catch (e) {
+        warnOnce('updateFlaskData-parse', `updateFlaskData: bad payload: ${e}`);
         return;
     }
 
     const el = flaskElements[flaskType];
-    if (!el) return;
+    if (!el) {
+        warnOnce(`updateFlaskData-missing-${flaskType}`, `updateFlaskData: flask type ${flaskType} was never initialized`);
+        return;
+    }
 
     el.maxSlots = maxSlots;
 
@@ -320,6 +357,16 @@ window.Show = () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => window.firstInitDom(), 1000);
+});
+
+// firstInitDom can run before the <object> subresources are done, so retry once the page
+// is fully loaded. initFlask/setupSvg are idempotent, already-built flasks are skipped.
+window.addEventListener('load', () => {
+    flasks.forEach(initFlask);
+    const ready = flasks.filter(f => flaskElements[f.type]).length;
+    if (ready < flasks.length) {
+        console.error(`window.load: only ${ready}/${flasks.length} flasks initialized`);
+    }
 });
 
 // =========================================================
