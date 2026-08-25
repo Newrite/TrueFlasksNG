@@ -7,7 +7,7 @@ add_requires("glaze")
 
 -- set project
 set_project("TrueFlasksNG")
-set_version("1.0.0")
+set_version("1.2.6")
 set_license("GPL-3.0")
 
 -- set defaults
