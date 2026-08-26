@@ -523,11 +523,12 @@ namespace core::utility
          ui->IsMenuOpen(RE::FavoritesMenu::MENU_NAME) || ui->IsMenuOpen(RE::SleepWaitMenu::MENU_NAME) ||
          ui->IsMenuOpen(RE::JournalMenu::MENU_NAME) || ui->IsMenuOpen(RE::BarterMenu::MENU_NAME) ||
          ui->IsMenuOpen(RE::MainMenu::MENU_NAME) || ui->IsMenuOpen(RE::BookMenu::MENU_NAME) ||
-         ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME) || ui->IsMenuOpen(RE::GiftMenu::MENU_NAME) || ui->
-         IsMenuOpen(RE::MessageBoxMenu::MENU_NAME) || ui->IsMenuOpen(RE::TrainingMenu::MENU_NAME) || ui->
-         IsMenuOpen(RE::MapMenu::MENU_NAME) || ui->IsMenuOpen(RE::TutorialMenu::MENU_NAME) || ui->
-         IsMenuOpen(RE::LevelUpMenu::MENU_NAME) || ui->IsMenuOpen(RE::CreditsMenu::MENU_NAME) || ui->
-         IsMenuOpen("LootMenuIE") || ui->IsMenuOpen("LootMenu") || CheckIfWheelerOpen())) {
+         ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME) || ui->IsMenuOpen(RE::GiftMenu::MENU_NAME) ||
+         ui->IsMenuOpen(RE::MessageBoxMenu::MENU_NAME) || ui->IsMenuOpen(RE::TrainingMenu::MENU_NAME) || 
+         ui->IsMenuOpen(RE::MapMenu::MENU_NAME) || ui->IsMenuOpen(RE::TutorialMenu::MENU_NAME) || 
+         ui->IsMenuOpen(RE::LevelUpMenu::MENU_NAME) || ui->IsMenuOpen(RE::CreditsMenu::MENU_NAME) || 
+         ui->IsMenuOpen(RE::CraftingMenu::MENU_NAME) || ui->IsMenuOpen("LootMenuIE") || 
+         ui->IsMenuOpen("LootMenu") || CheckIfWheelerOpen())) {
       return true;
     }
     return false;
